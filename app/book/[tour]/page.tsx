@@ -262,7 +262,7 @@ export default function BookingPage() {
           <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < 3 ? '1' : 'initial' }}>
             <div className={`step-indicator__item ${i === step ? 'active' : i < step ? 'done' : ''}`}>
               <div className="step-indicator__num">{i < step ? '✓' : i + 1}</div>
-              <span style={{ display: window?.innerWidth < 480 ? 'none' : 'inline' }}>{label}</span>
+              <span className="sm-hidden">{label}</span>
             </div>
             {i < 3 && <div className="step-indicator__line" />}
           </div>

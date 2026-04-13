@@ -75,6 +75,12 @@ a:hover { color: var(--ocean-deep); }
 
 main { flex: 1; }
 
+@media (max-width: 480px) {
+  .sm-hidden {
+    display: none !important;
+  }
+}
+
 /* ── Typography ──────────────────────────────────────────────────────────── */
 h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; }
 h1 { font-size: clamp(2rem, 5vw, 3rem); }
