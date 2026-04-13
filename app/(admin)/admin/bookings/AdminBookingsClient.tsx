@@ -5,15 +5,11 @@ import type { Booking, BookingDate } from '@prisma/client'
 
 type BookingWithDates = Booking & { bookingDates: BookingDate[] }
 
-const TOUR_NAMES: Record<string, string> = {
-  whale_day_trip: 'Day Trip', whale_3day: '3-Day', whale_5day: '5-Day', island_reef: 'Outer Reef',
-}
-
 const VESSELS = ['mv_ika_nui', 'mv_huelo', 'hele_kosi']
 const STATUSES = ['', 'pending_payment', 'confirmed', 'cancelled', 'refunded']
 const REFUND_METHODS = ['egate', 'manual', 'none']
 
-export default function AdminBookingsClient({ initialBookings }: { initialBookings: BookingWithDates[] }) {
+export default function AdminBookingsClient({ initialBookings, tourNames }: { initialBookings: BookingWithDates[], tourNames: Record<string, string> }) {
   const [bookings, setBookings] = useState(initialBookings)
   const [filter, setFilter]     = useState({ status: '', tour: '' })
   const [selected, setSelected] = useState<BookingWithDates | null>(null)
@@ -64,7 +60,7 @@ export default function AdminBookingsClient({ initialBookings }: { initialBookin
       ['Ref','Guest','Email','Tour','Dates','Guests','Amount','Status','Vessel'],
       ...filtered.map(b => [
         b.reference, b.guestName, b.guestEmail,
-        TOUR_NAMES[b.tourId] ?? b.tourId,
+        tourNames[b.tourId] ?? b.tourId,
         b.bookingDates.map(bd => bd.tourDate.toString().slice(0,10)).join('; '),
         b.numGuests, Number(b.amountTop).toFixed(2),
         b.status, b.assignedVessel ?? '',
@@ -96,7 +92,7 @@ export default function AdminBookingsClient({ initialBookings }: { initialBookin
         <select value={filter.tour} onChange={e => setFilter(f => ({ ...f, tour: e.target.value }))}
           style={{ padding: '8px 14px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.88rem' }}>
           <option value="">All tours</option>
-          {Object.entries(TOUR_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(tourNames).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', alignSelf: 'center' }}>
           {filtered.length} result{filtered.length !== 1 ? 's' : ''}
@@ -120,7 +116,7 @@ export default function AdminBookingsClient({ initialBookings }: { initialBookin
                   <div style={{ fontWeight: 600 }}>{b.guestName}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{b.guestEmail}</div>
                 </td>
-                <td>{TOUR_NAMES[b.tourId] ?? b.tourId}</td>
+                <td>{tourNames[b.tourId] ?? b.tourId}</td>
                 <td style={{ fontSize: '0.82rem' }}>{b.bookingDates.map(bd => bd.tourDate.toString().slice(0,10)).join(', ')}</td>
                 <td>{b.numGuests}</td>
                 <td>TOP$ {Number(b.amountTop).toFixed(0)}</td>
@@ -166,7 +162,7 @@ export default function AdminBookingsClient({ initialBookings }: { initialBookin
               ['Guest', selected.guestName],
               ['Email', selected.guestEmail],
               ['Phone', selected.guestPhone ?? '—'],
-              ['Tour', TOUR_NAMES[selected.tourId]],
+              ['Tour', tourNames[selected.tourId]],
               ['Dates', selected.bookingDates.map(bd => bd.tourDate.toString().slice(0,10)).join(', ')],
               ['Guests', selected.numGuests],
               ['Amount', `TOP$ ${Number(selected.amountTop).toFixed(2)}`],

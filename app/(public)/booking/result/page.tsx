@@ -11,6 +11,7 @@ interface Booking {
   numGuests: number
   amountTop: string
   bookingDates: Array<{ tourDate: string }>
+  tourName?: string
 }
 
 const TOUR_NAMES: Record<string, string> = {
@@ -101,7 +102,7 @@ function ResultContent() {
 
       <div style={{ background: 'var(--foam)', borderRadius: 'var(--radius-md)', padding: '20px 24px', marginBottom: 24, textAlign: 'left' }}>
         <div style={{ fontSize: '0.88rem', display: 'grid', gap: 10 }}>
-          <div><strong>Tour:</strong> {TOUR_NAMES[booking.tourId] ?? booking.tourId}</div>
+          <div><strong>Tour:</strong> {booking.tourName ?? booking.tourId}</div>
           <div><strong>Date{dates.length > 1 ? 's' : ''}:</strong>
             <ul style={{ marginTop: 4, paddingLeft: 20 }}>
               {dates.map((d, i) => <li key={i}>{d}</li>)}

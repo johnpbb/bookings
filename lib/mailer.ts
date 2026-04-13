@@ -7,6 +7,7 @@
 import nodemailer from 'nodemailer'
 import { prisma } from './db'
 import type { Booking } from '@prisma/client'
+import { getOnlineTour, getEnquiryTour, getToursConfig } from './tours'
 
 // ── Transport ────────────────────────────────────────────────────────────────
 
@@ -33,18 +34,12 @@ const FROM_ADDRESS = `"Tahi Tonga" <${process.env.SMTP_FROM ?? 'no-reply@tahiton
 
 // ── Friendly tour names ───────────────────────────────────────────────────────
 
-const TOUR_NAMES: Record<string, string> = {
-  whale_day_trip: 'Ultimate Day Trip',
-  whale_3day: 'Whale Watch 3-Day Special',
-  whale_5day: 'Whale Watch 5-Day Special',
-  island_reef: 'Outer Reef Excursion',
-  whale_charter: 'Whale Watch Charter',
-  island_charter: 'Island Exclusive Charter',
-  game_fishing: 'Game Fishing Charter',
-}
-
-function tourName(id: string) {
-  return TOUR_NAMES[id] ?? id
+async function tourName(id: string) {
+  const onlineTour = await getOnlineTour(id)
+  if (onlineTour) return onlineTour.name
+  const enquiryTour = await getEnquiryTour(id)
+  if (enquiryTour) return enquiryTour.name
+  return id
 }
 
 function formatDate(d: Date | string) {
@@ -80,11 +75,11 @@ export async function sendBookingConfirmation({
       </div>
       <div style="padding:32px 24px;background:#fff">
         <p>Kia orana ${booking.guestName},</p>
-        <p>Your booking for <strong>${tourName(booking.tourId)}</strong> is confirmed. We can't wait to welcome you!</p>
+        <p>Your booking for <strong>${await tourName(booking.tourId)}</strong> is confirmed. We can't wait to welcome you!</p>
 
         <table style="width:100%;border-collapse:collapse;margin:24px 0">
           <tr><td style="padding:8px;color:#666">Booking Ref</td><td style="padding:8px;font-weight:bold">${booking.reference}</td></tr>
-          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Tour</td><td style="padding:8px">${tourName(booking.tourId)}</td></tr>
+          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Tour</td><td style="padding:8px">${await tourName(booking.tourId)}</td></tr>
           <tr><td style="padding:8px;color:#666">Guest</td><td style="padding:8px">${booking.guestName}</td></tr>
           <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Guests</td><td style="padding:8px">${booking.numGuests}</td></tr>
           <tr><td style="padding:8px;color:#666">Date(s)</td><td style="padding:8px">${dates.map(formatDate).join('<br/>')}</td></tr>
@@ -107,9 +102,9 @@ export async function sendBookingConfirmation({
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: booking.guestEmail,
-    subject: `Booking Confirmed — ${tourName(booking.tourId)} · ${booking.reference}`,
+    subject: `Booking Confirmed — ${await tourName(booking.tourId)} · ${booking.reference}`,
     html,
-    text: `Booking Confirmed!\n\nRef: ${booking.reference}\nTour: ${tourName(booking.tourId)}\nDates:\n${dateList}\nGuests: ${booking.numGuests}\nTotal: ${formatTop(booking.amountTop)}\n\nSee you soon!`,
+    text: `Booking Confirmed!\n\nRef: ${booking.reference}\nTour: ${await tourName(booking.tourId)}\nDates:\n${dateList}\nGuests: ${booking.numGuests}\nTotal: ${formatTop(booking.amountTop)}\n\nSee you soon!`,
   })
 }
 
@@ -131,7 +126,7 @@ export async function sendOperatorBookingAlert({
       </h2>
       <div style="padding:24px">
         <table style="width:100%;border-collapse:collapse">
-          <tr><td style="padding:6px 0;color:#666;width:140px">Tour</td><td>${tourName(booking.tourId)}</td></tr>
+          <tr><td style="padding:6px 0;color:#666;width:140px">Tour</td><td>${await tourName(booking.tourId)}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Guest</td><td>${booking.guestName}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Email</td><td>${booking.guestEmail}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Phone</td><td>${booking.guestPhone ?? '—'}</td></tr>
@@ -153,7 +148,7 @@ export async function sendOperatorBookingAlert({
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: operatorEmail,
-    subject: `New Booking: ${booking.reference} — ${tourName(booking.tourId)}`,
+    subject: `New Booking: ${booking.reference} — ${await tourName(booking.tourId)}`,
     html,
   })
 }
@@ -176,11 +171,11 @@ export async function sendEnquiryNotification(enquiry: {
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:auto">
       <h2 style="background:#1a6e4f;color:#fff;padding:16px 24px;margin:0">
-        New Enquiry — ${tourName(enquiry.tourId)}
+        New Enquiry — ${await tourName(enquiry.tourId)}
       </h2>
       <div style="padding:24px">
         <table style="width:100%;border-collapse:collapse">
-          <tr><td style="padding:6px 0;color:#666;width:140px">Tour</td><td>${tourName(enquiry.tourId)}</td></tr>
+          <tr><td style="padding:6px 0;color:#666;width:140px">Tour</td><td>${await tourName(enquiry.tourId)}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Guest</td><td>${enquiry.guestName}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Email</td><td>${enquiry.guestEmail}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Phone</td><td>${enquiry.guestPhone ?? '—'}</td></tr>
@@ -201,7 +196,7 @@ export async function sendEnquiryNotification(enquiry: {
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: operatorEmail,
-    subject: `New Enquiry — ${tourName(enquiry.tourId)} from ${enquiry.guestName}`,
+    subject: `New Enquiry — ${await tourName(enquiry.tourId)} from ${enquiry.guestName}`,
     html,
   })
 }

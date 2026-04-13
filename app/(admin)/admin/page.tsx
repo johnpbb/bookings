@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
+import { getToursConfig } from '@/lib/tours'
 
 export default async function AdminDashboard() {
   const session = await getServerSession(authOptions)
@@ -39,9 +40,11 @@ export default async function AdminDashboard() {
     include: { bookingDates: { orderBy: { tourDate: 'asc' }, take: 1 } },
   })
 
-  const TOUR_NAMES: Record<string, string> = {
-    whale_day_trip: 'Day Trip', whale_3day: '3-Day', whale_5day: '5-Day', island_reef: 'Outer Reef',
-  }
+  const { online, enquiry } = await getToursConfig()
+  const TOUR_NAMES = Object.fromEntries(
+    [...online, ...enquiry].map(t => [t.id, t.name])
+  )
+  
   const STATUS_STYLE: Record<string, string> = {
     confirmed: 'confirmed', pending_payment: 'pending', cancelled: 'cancelled',
   }

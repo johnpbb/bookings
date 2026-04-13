@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import AdminBookingsClient from './AdminBookingsClient'
+import { getToursConfig } from '@/lib/tours'
 
 export default async function AdminBookingsPage() {
   const session = await getServerSession(authOptions)
@@ -21,5 +22,10 @@ export default async function AdminBookingsPage() {
     refundAmountTop: b.refundAmountTop ? Number(b.refundAmountTop) : null,
   })) as any
 
-  return <AdminBookingsClient initialBookings={serializedBookings} />
+  const { online, enquiry } = await getToursConfig()
+  const tourMap = Object.fromEntries(
+    [...online, ...enquiry].map(t => [t.id, t.name])
+  )
+
+  return <AdminBookingsClient initialBookings={serializedBookings} tourNames={tourMap} />
 }

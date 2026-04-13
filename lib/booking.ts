@@ -9,25 +9,7 @@ import { sendBookingConfirmation, sendOperatorBookingAlert, sendRefundConfirmati
 import { processEgateRefund } from './egate'
 import type { Booking, BookingDate } from '@prisma/client'
 
-// ── Tour configuration ────────────────────────────────────────────────────────
-
-export const TOUR_DATE_COUNTS: Record<string, number> = {
-  whale_day_trip: 1,
-  whale_3day: 3,
-  whale_5day: 5,
-  island_reef: 1,
-}
-
-// Base prices per person in TOP
-export const TOUR_PRICES: Record<string, number> = {
-  whale_day_trip: 250,
-  whale_3day: 1850,  // per person for all 3 days
-  whale_5day: 1100,  // per person for all 5 days
-}
-
-// Outer Reef volume-tiered pricing
-const REEF_PRICE_SMALL = 400  // 1–4 guests
-const REEF_PRICE_LARGE = 320  // 5+ guests
+import { getOnlineTour } from './tours'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,12 +65,18 @@ async function generateRef(): Promise<string> {
 
 // ── Price calculation ─────────────────────────────────────────────────────────
 
-export function calculateBasePrice(tourId: string, numGuests: number): number {
+export async function calculateBasePrice(tourId: string, numGuests: number): Promise<number> {
+  const tour = await getOnlineTour(tourId)
+  if (!tour) return 0
+
   if (tourId === 'island_reef') {
-    const ppp = numGuests >= 5 ? REEF_PRICE_LARGE : REEF_PRICE_SMALL
+    const smallPrice = tour.reefPriceSmall || 400
+    const largePrice = tour.reefPriceLarge || 320
+    const ppp = numGuests >= 5 ? largePrice : smallPrice
     return ppp * numGuests
   }
-  const ppp = TOUR_PRICES[tourId] ?? 0
+  
+  const ppp = tour.pricePerPerson ?? 0
   return ppp * numGuests
 }
 
@@ -135,13 +123,15 @@ function checkRateLimit(ip: string): boolean {
 // ── PLACE HOLD (core atomic operation) ───────────────────────────────────────
 
 export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
+  const tour = await getOnlineTour(args.tourId)
+  
   // Validate tour type
-  if (!TOUR_DATE_COUNTS[args.tourId]) {
+  if (!tour) {
     return { success: false, error: 'Invalid tour type.' }
   }
 
   // Validate date count
-  const required = TOUR_DATE_COUNTS[args.tourId]
+  const required = tour.dateCount
   const dates = [...new Set(args.dates)].sort()
   if (dates.length !== required) {
     return {
@@ -162,7 +152,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
   }
 
   // Calculate pricing
-  const baseAmount = calculateBasePrice(args.tourId, args.numGuests)
+  const baseAmount = await calculateBasePrice(args.tourId, args.numGuests)
   let promoDiscount = 0
   let promoCodeUsed = ''
 

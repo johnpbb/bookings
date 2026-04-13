@@ -7,6 +7,7 @@ const PUBLIC_KEYS = [
   'operator_email', 'egate_sandbox', 'egate_merchant_id', 'egate_shared_secret',
   'egate_endpoint', 'egate_sandbox_endpoint', 'excluded_dates',
   'email_meeting_point', 'email_inclusions', 'email_what_to_bring',
+  'online_tours_config', 'enquiry_tours_config'
 ]
 
 // GET /api/admin/settings

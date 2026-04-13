@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getBookingByEgateOrder } from '@/lib/booking'
 import { verifyPaymentOrder } from '@/lib/egate'
+import { getOnlineTour, getEnquiryTour } from '@/lib/tours'
 
 // GET /api/booking/by-order?order_id=TT-42-ABCD1234
 // Polled by result page after user is redirected from Mastercard.
@@ -40,5 +41,8 @@ export async function GET(req: NextRequest) {
     egateTxnRef?: string; ipAddress?: string; cancelReason?: string
   }
 
-  return NextResponse.json(safe)
+  const oTour = await getOnlineTour(currentBooking.tourId)
+  const eTour = await getEnquiryTour(currentBooking.tourId)
+
+  return NextResponse.json({ ...safe, tourName: oTour?.name || eTour?.name })
 }

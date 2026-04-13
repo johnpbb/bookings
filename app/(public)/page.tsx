@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getToursConfig } from '@/lib/tours'
 
 export const metadata: Metadata = {
   title: 'Book a Tour — Tahi Tonga',
@@ -7,85 +8,9 @@ export const metadata: Metadata = {
     'Choose from Tahi Tonga\'s whale watching, outer reef, and island charter experiences in Vavaʻu, Tonga. Real-time online booking available.',
 }
 
-const BOOKING_TOURS = [
-  {
-    id: 'whale_day_trip',
-    name: 'Ultimate Day Trip',
-    emoji: '🐋',
-    tagline: 'Swim with humpback whales',
-    desc: 'A full day in the water with humpback whales. This is the experience that brings guests back year after year.',
-    price: 'TOP$ 250',
-    perNote: 'per person',
-    highlights: ['Full day on the water', 'In-water whale encounters', 'Professional guides', 'All snorkelling gear'],
-    badge: 'Most popular',
-    type: 'book',
-  },
-  {
-    id: 'whale_3day',
-    name: '3-Day Special',
-    emoji: '🌊',
-    tagline: 'Three days, your own chosen dates',
-    desc: 'Choose any 3 operating days across the season. More time in the water means a much higher chance of meaningful encounters.',
-    price: 'TOP$ 1,850',
-    perNote: 'per person (all 3 days)',
-    highlights: ['3 non-consecutive days', 'Priority seat selection', 'Promo codes accepted', 'Fringe season discount available'],
-    badge: null,
-    type: 'book',
-  },
-  {
-    id: 'whale_5day',
-    name: '5-Day Special',
-    emoji: '🏝️',
-    tagline: 'The ultimate whale season immersion',
-    desc: 'Five full days on the water, on dates you choose. The best way to truly experience Tonga\'s humpback season.',
-    price: 'TOP$ 1,100',
-    perNote: 'per person (all 5 days)',
-    highlights: ['5 non-consecutive days', 'Maximum encounter time', 'Best value per day', 'Small group experience'],
-    badge: 'Best value',
-    type: 'book',
-  },
-  {
-    id: 'island_reef',
-    name: 'Outer Reef Excursion',
-    emoji: '🪸',
-    tagline: 'Uninhabited island · Snorkel · Lunch',
-    desc: 'Discover a pristine outer reef island, snorkel crystal-clear waters, and enjoy a locally sourced light lunch. Volume discounts apply.',
-    price: 'TOP$ 400',
-    perNote: 'per person (5+ guests: TOP$ 320pp)',
-    highlights: ['5-hour excursion', 'Gear supplied', 'Light lunch included', 'Minimum 4 guests'],
-    badge: null,
-    type: 'book',
-  },
-]
-
-const ENQUIRY_TOURS = [
-  {
-    id: 'whale_charter',
-    name: 'Whale Watch Charter',
-    emoji: '⚓',
-    tagline: 'Exclusive vessel for your group',
-    desc: 'Charter an entire whale watch vessel for your group. Up to 8 swimmers + 2 watchers. Pricing on application.',
-    type: 'enquiry',
-  },
-  {
-    id: 'island_charter',
-    name: 'Island Exclusive Charter',
-    emoji: '🌴',
-    tagline: 'Private 5-hour island experience',
-    desc: 'Exclusive charter for up to 10 people. TOP$ 2,400 includes snorkelling, lunch, and a picture-perfect outer reef island.',
-    type: 'enquiry',
-  },
-  {
-    id: 'game_fishing',
-    name: 'Game Fishing Charter',
-    emoji: '🎣',
-    tagline: 'Head out wide for 4 hours of fishing',
-    desc: 'Up to 4 people. TOP$ 1,600. All gear supplied. Can sometimes arrange shared bookings — ask in your enquiry.',
-    type: 'enquiry',
-  },
-]
-
-export default function HomePage() {
+export default async function HomePage() {
+  const { online: BOOKING_TOURS, enquiry: ENQUIRY_TOURS } = await getToursConfig()
+  
   return (
     <>
       {/* Hero */}
@@ -112,7 +37,7 @@ export default function HomePage() {
           </p>
 
           <div className="tour-grid">
-            {BOOKING_TOURS.map((tour) => (
+            {BOOKING_TOURS.filter(t => t.isActive).map((tour) => (
               <div key={tour.id} className="tour-card">
                 <div className="tour-card__img-wrap">
                   <div style={{
@@ -141,7 +66,7 @@ export default function HomePage() {
                     ))}
                   </ul>
 
-                  <div className="tour-card__price">{tour.price}</div>
+                  <div className="tour-card__price">{tour.priceLabel}</div>
                   <div className="tour-card__price-note">{tour.perNote}</div>
 
                   <Link href={`/book/${tour.id}`} className="btn btn-primary btn-full">
@@ -161,7 +86,7 @@ export default function HomePage() {
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
-            {ENQUIRY_TOURS.map((tour) => (
+            {ENQUIRY_TOURS.filter(t => t.isActive).map((tour) => (
               <div key={tour.id} style={{
                 background: 'white', borderRadius: 'var(--radius-lg)', padding: 28,
                 border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)',

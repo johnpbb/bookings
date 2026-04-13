@@ -3,12 +3,9 @@
 import { useState } from 'react'
 import type { Enquiry } from '@prisma/client'
 
-const TOUR_NAMES: Record<string, string> = {
-  whale_charter: 'Whale Charter', island_charter: 'Island Charter', game_fishing: 'Game Fishing',
-}
 const STATUSES = ['new', 'contacted', 'confirmed', 'declined']
 
-export default function AdminEnquiriesClient({ initialEnquiries }: { initialEnquiries: Enquiry[] }) {
+export default function AdminEnquiriesClient({ initialEnquiries, tourNames }: { initialEnquiries: Enquiry[], tourNames: Record<string, string> }) {
   const [enquiries, setEnquiries] = useState(initialEnquiries)
   const [selected, setSelected]   = useState<Enquiry | null>(null)
   const [notes, setNotes]         = useState('')
@@ -58,7 +55,7 @@ export default function AdminEnquiriesClient({ initialEnquiries }: { initialEnqu
                   <div style={{ fontWeight: 600 }}>{e.guestName}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{e.guestEmail}</div>
                 </td>
-                <td>{TOUR_NAMES[e.tourId] ?? e.tourId}</td>
+                <td>{tourNames[e.tourId] ?? e.tourId}</td>
                 <td style={{ fontSize: '0.82rem' }}>{e.preferredDates ?? '—'}</td>
                 <td>{e.groupSize ?? '—'}</td>
                 <td style={{ fontSize: '0.82rem' }}>{new Date(e.createdAt).toLocaleDateString('en-NZ')}</td>
@@ -88,7 +85,7 @@ export default function AdminEnquiriesClient({ initialEnquiries }: { initialEnqu
       {selected && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}>
           <div style={{ background: 'white', borderRadius: 20, padding: 40, maxWidth: 560, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-            <h2 style={{ marginBottom: 20 }}>{TOUR_NAMES[selected.tourId]} — {selected.guestName}</h2>
+            <h2 style={{ marginBottom: 20 }}>{tourNames[selected.tourId]} — {selected.guestName}</h2>
             {[
               ['Email', selected.guestEmail],
               ['Phone', selected.guestPhone ?? '—'],
