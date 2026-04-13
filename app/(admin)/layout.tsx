@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session) {
     // Non-login pages handled by middleware; just render children (the login page)
     return (
-      <html lang="en"><body style={{ background: 'var(--ocean-deep)', minHeight: '100vh' }}>
+      <html lang="en" suppressHydrationWarning><body style={{ background: 'var(--ocean-deep)', minHeight: '100vh' }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'); body { font-family: 'Inter', sans-serif; }`}</style>
         {children}
       </body></html>
@@ -31,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
         <div className="admin-layout">
           <aside className="admin-sidebar">

@@ -14,5 +14,12 @@ export default async function AdminBookingsPage() {
     include: { bookingDates: { orderBy: { tourDate: 'asc' } } },
   })
 
-  return <AdminBookingsClient initialBookings={bookings} />
+  const serializedBookings = bookings.map(b => ({
+    ...b,
+    amountTop: Number(b.amountTop),
+    discountTop: b.discountTop ? Number(b.discountTop) : null,
+    refundAmountTop: b.refundAmountTop ? Number(b.refundAmountTop) : null,
+  })) as any
+
+  return <AdminBookingsClient initialBookings={serializedBookings} />
 }

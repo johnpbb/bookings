@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildPaymentRedirect } from '@/lib/egate'
+import { buildPaymentSession } from '@/lib/egate'
 import { getBooking } from '@/lib/booking'
 
 export async function POST(req: NextRequest) {
@@ -20,13 +20,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Booking hold has expired. Please start again.' }, { status: 410 })
     }
 
-    const redirect = await buildPaymentRedirect(bookingId, {
+    const sessionData = await buildPaymentSession(bookingId, {
       reference: booking.reference,
       tourId: booking.tourId,
       amountTop: booking.amountTop,
     })
 
-    return NextResponse.json(redirect)
+    return NextResponse.json(sessionData)
   } catch (err) {
     console.error('[api/egate/redirect]', err)
     return NextResponse.json({ error: 'Payment redirect error.' }, { status: 500 })

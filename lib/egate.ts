@@ -1,11 +1,6 @@
 /**
  * lib/egate.ts
- * ANZ eGate integration — HMAC-SHA256 redirect/post-back model.
- *
- * Flow:
- *   1. buildPaymentRedirect() → signed fields POSTed to ANZ hosted page
- *   2. validateCallback()     → validates HMAC on ANZ post-back
- *   3. processEgateRefund()   → calls ANZ refund API
+ * ANZ eGate integration — REST JSON API (Hosted Checkout Session).
  */
 import crypto from 'crypto'
 import { prisma } from './db'
@@ -21,26 +16,34 @@ async function merchantId(): Promise<string> {
   return getSetting('egate_merchant_id')
 }
 
-async function sharedSecret(): Promise<string> {
+// We map egate_shared_secret to the new API password concept
+async function apiPassword(): Promise<string> {
   return getSetting('egate_shared_secret')
 }
 
+// Ensure base URL looks like: https://anzegate.gateway.mastercard.com/api/rest/version/100
 async function endpoint(): Promise<string> {
   const sandbox = await getSetting('egate_sandbox', 'true')
-  return sandbox === 'true'
-    ? await getSetting('egate_sandbox_endpoint', 'https://test-gateway.mastercard.com/api/nvp/version/61')
-    : await getSetting('egate_endpoint', 'https://gateway.mastercard.com/api/nvp/version/61')
+  const host = sandbox === 'true' 
+    ? 'https://anzegate.gateway.mastercard.com'
+    : 'https://anzegate.gateway.mastercard.com'
+  return `${host}/api/rest/version/100`
 }
 
-// ── 1. Build payment redirect ─────────────────────────────────────────────────
+function getAuthHeader(mid: string, pass: string): string {
+  return 'Basic ' + Buffer.from(`merchant.${mid}:${pass}`).toString('base64')
+}
 
-export interface EgateRedirectResult {
-  actionUrl: string
-  fields: Record<string, string>
+// ── 1. Create Checkout Session ────────────────────────────────────────────────
+
+export interface EgateSessionResult {
+  sessionId: string
+  successIndicator: string
   orderId: string
+  version: string
 }
 
-export async function buildPaymentRedirect(
+export async function buildPaymentSession(
   bookingId: number,
   booking: {
     reference: string
@@ -48,32 +51,57 @@ export async function buildPaymentRedirect(
     amountTop: number | string | { toString(): string }
     currency?: string
   },
-): Promise<EgateRedirectResult> {
+): Promise<EgateSessionResult> {
   const mid = await merchantId()
-  const secret = await sharedSecret()
-  const actionUrl = await endpoint()
+  const pass = await apiPassword()
+  const baseUrl = await endpoint()
+  const url = `${baseUrl}/merchant/${mid}/session`
 
   const amount = Number(booking.amountTop).toFixed(2)
   const currency = booking.currency ?? 'TOP'
   const orderId = generateOrderId(bookingId, booking.reference)
   const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/booking/result?order_id=${encodeURIComponent(orderId)}`
-  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14)
 
-  const fields: Record<string, string> = {
-    merchant: mid,
-    'order.id': orderId,
-    'order.amount': amount,
-    'order.currency': currency,
-    'order.description': `Tahi Tonga — ${friendlyTourName(booking.tourId)} (${booking.reference})`,
-    'transaction.id': '1',
-    'return.url': returnUrl,
-    timestamp,
+  const payload = {
+    apiOperation: 'INITIATE_CHECKOUT',
+    interaction: {
+      operation: 'PURCHASE',
+      returnUrl,
+      merchant: {
+        name: 'Tahi Tonga',
+      },
+      displayControl: {
+        billingAddress: 'HIDE', // simplify checkout
+      }
+    },
+    order: {
+      id: orderId,
+      amount: amount,
+      currency: currency,
+      description: `Tahi Tonga — ${friendlyTourName(booking.tourId)} (${booking.reference})`,
+    },
   }
 
-  // HMAC: sort keys alphabetically, concatenate key=value, sign
-  const sortedKeys = Object.keys(fields).sort()
-  const sigString = sortedKeys.map((k) => `${k}=${fields[k]}`).join('')
-  const signature = crypto.createHmac('sha256', secret).update(sigString).digest('hex')
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': getAuthHeader(mid, pass),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error('[eGate] Failed to create session:', errText)
+    throw new Error('Could not create payment session.')
+  }
+
+  const data = await res.json()
+
+  if (data.result !== 'SUCCESS') {
+    throw new Error(data.error?.explanation || 'Session creation returned non-SUCCESS.')
+  }
 
   // Store order ID against booking
   await prisma.booking.update({
@@ -82,51 +110,56 @@ export async function buildPaymentRedirect(
   })
 
   return {
-    actionUrl,
-    fields: { ...fields, signature, action: 'PURCHASE' },
+    sessionId: data.session.id,
+    successIndicator: data.successIndicator,
     orderId,
+    version: data.session.version
   }
 }
 
-// ── 2. Validate callback ──────────────────────────────────────────────────────
+// ── 2. Verify Payment Order Status ──────────────────────────────────────────
 
-export interface CallbackResult {
-  valid: boolean
+export interface VerifyOrderResult {
   success: boolean
-  orderId?: string
+  status: 'CAPTURED' | 'FAILED' | 'PENDING' | 'UNKNOWN'
   txnRef?: string
   error?: string
 }
 
-export async function validateCallback(postData: Record<string, string>): Promise<CallbackResult> {
-  const secret = await sharedSecret()
-  const receivedSig = postData['signature'] ?? ''
+export async function verifyPaymentOrder(orderId: string): Promise<VerifyOrderResult> {
+  const mid = await merchantId()
+  const pass = await apiPassword()
+  const baseUrl = await endpoint()
+  const url = `${baseUrl}/merchant/${mid}/order/${orderId}`
 
-  if (!receivedSig) {
-    return { valid: false, success: false, error: 'Missing signature.' }
-  }
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': getAuthHeader(mid, pass),
+      },
+      // Prevent aggressive caching
+      cache: 'no-store'
+    })
 
-  // Rebuild signature (exclude 'signature' field)
-  const fieldsToSign = { ...postData }
-  delete fieldsToSign['signature']
+    if (!res.ok) {
+       // Order might not exist if user abandoned before payment
+       return { success: false, status: 'UNKNOWN' }
+    }
 
-  const sortedKeys = Object.keys(fieldsToSign).sort()
-  const sigString = sortedKeys.map((k) => `${k}=${fieldsToSign[k]}`).join('')
-  const expected = crypto.createHmac('sha256', secret).update(sigString).digest('hex')
+    const data = await res.json()
 
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(receivedSig))) {
-    return { valid: false, success: false, error: 'HMAC signature mismatch.' }
-  }
-
-  const result = postData['result'] ?? ''
-  const orderId = postData['order.id'] ?? ''
-  const txnRef = postData['order.merchant.transaction'] ?? postData['transaction.id'] ?? ''
-
-  return {
-    valid: true,
-    success: result === 'SUCCESS',
-    orderId,
-    txnRef,
+    if (data.result === 'SUCCESS' && (data.status === 'CAPTURED' || data.status === 'AUTHORIZED')) {
+      const txnRef = data.transaction?.[0]?.transaction?.id ?? ''
+      return { success: true, status: 'CAPTURED', txnRef }
+    } else if (data.status === 'FAILED') {
+      return { success: false, status: 'FAILED' }
+    } else {
+      return { success: false, status: 'PENDING' }
+    }
+  } catch (err) {
+    console.error('[eGate] Verify network error:', err)
+    return { success: false, status: 'UNKNOWN', error: 'Network error verifying order.' }
   }
 }
 
@@ -138,36 +171,34 @@ export async function processEgateRefund(
   refundAmount: number,
 ): Promise<boolean> {
   const mid = await merchantId()
-  const secret = await sharedSecret()
-  const url = await endpoint()
-  const timestamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14)
+  const pass = await apiPassword()
+  const baseUrl = await endpoint()
+  
+  // A transaction ID is needed for refunds, unique per refund.
+  const txnId = `REF-${Date.now()}`
+  const url = `${baseUrl}/merchant/${mid}/order/${orderId}/transaction/${txnId}`
 
-  const fields: Record<string, string> = {
-    merchant: mid,
-    'order.id': orderId,
-    'transaction.id': '2',
-    'transaction.amount': refundAmount.toFixed(2),
-    'transaction.currency': 'TOP',
-    timestamp,
+  const payload = {
+    apiOperation: 'REFUND',
+    transaction: {
+      amount: refundAmount.toFixed(2),
+      currency: 'TOP',
+    }
   }
-
-  const sortedKeys = Object.keys(fields).sort()
-  const sigString = sortedKeys.map((k) => `${k}=${fields[k]}`).join('')
-  const signature = crypto.createHmac('sha256', secret).update(sigString).digest('hex')
-
-  const body = new URLSearchParams({ ...fields, signature, action: 'REFUND' })
 
   try {
     const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
+      method: 'PUT',
+      headers: {
+        'Authorization': getAuthHeader(mid, pass),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     })
 
-    const text = await res.text()
-    const parsed = Object.fromEntries(new URLSearchParams(text))
+    const data = await res.json()
 
-    if (parsed['result'] === 'SUCCESS') {
+    if (res.ok && data.result === 'SUCCESS') {
       await prisma.booking.update({
         where: { id: bookingId },
         data: { status: 'refunded', refundedAt: new Date() },
@@ -175,7 +206,7 @@ export async function processEgateRefund(
       return true
     }
 
-    console.error(`[eGate] Refund failed for order ${orderId}:`, parsed)
+    console.error(`[eGate] Refund failed for order ${orderId}:`, data)
     await prisma.booking.update({
       where: { id: bookingId },
       data: { status: 'refund_failed' },
@@ -195,7 +226,7 @@ export async function processEgateRefund(
 
 function generateOrderId(bookingId: number, ref: string): string {
   const hash = crypto.createHash('md5').update(ref).digest('hex').slice(0, 8).toUpperCase()
-  return `TT-${bookingId}-${hash}`
+  return `TT-${bookingId}-${hash.substring(0,5)}`
 }
 
 function friendlyTourName(tourId: string): string {
@@ -206,8 +237,4 @@ function friendlyTourName(tourId: string): string {
     island_reef: 'Outer Reef Excursion',
   }
   return names[tourId] ?? tourId
-}
-
-export function callbackUrl(): string {
-  return `${process.env.NEXT_PUBLIC_APP_URL}/api/egate/callback`
 }

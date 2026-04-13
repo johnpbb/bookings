@@ -93,7 +93,7 @@ export default async function AdminDashboard() {
           <tbody>
             {recentBookings.map(b => (
               <tr key={b.id}>
-                <td><a href={`/admin/bookings/${b.id}`} style={{ fontWeight: 600 }}>{b.reference}</a></td>
+                <td><a href={`/admin/bookings`} style={{ fontWeight: 600 }}>{b.reference}</a></td>
                 <td>{b.guestName}</td>
                 <td>{TOUR_NAMES[b.tourId] ?? b.tourId}</td>
                 <td>{b.bookingDates[0] ? new Date(b.bookingDates[0].tourDate).toLocaleDateString('en-NZ', { month: 'short', day: 'numeric' }) : '—'}</td>

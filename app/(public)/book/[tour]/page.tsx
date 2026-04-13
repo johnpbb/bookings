@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Script from 'next/script'
 
 // ── Tour config ───────────────────────────────────────────────────────────────
 
@@ -14,7 +15,6 @@ const TOUR_CONFIG: Record<string, {
   island_reef:    { name: 'Outer Reef Excursion', emoji: '🪸', dateCount: 1, priceNote: 'TOP$ 400pp (5+ guests: TOP$ 320pp)', pricePerPerson: null },
 }
 
-const STEPS = ['Dates', 'Details', 'Review', 'Payment', 'Result']
 
 type PromoResult = { valid: boolean; discount?: number; code?: string; error?: string }
 
@@ -54,14 +54,13 @@ export default function BookingPage() {
   const [countdownUrgent, setCountdownUrgent] = useState(false)
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
-  const [egateFields, setEgateFields]     = useState<Record<string, string> | null>(null)
-  const egateFormRef = useRef<HTMLFormElement | null>(null)
 
   // ── Redirect if invalid tour ──────────────────────────────────────────────
-  if (!tour) {
-    typeof window !== 'undefined' && router.push('/')
-    return null
-  }
+  useEffect(() => {
+    if (!tour) {
+      router.push('/')
+    }
+  }, [tour, router])
 
   // ── Load availability for Flatpickr ──────────────────────────────────────
   useEffect(() => {
@@ -94,14 +93,14 @@ export default function BookingPage() {
           }
         })
       },
-      onChange(dates: Date[]) {
-        const strs = dates.map(d => d.toISOString().slice(0, 10))
+      onChange(dates: Date[], dateStr: string, fpInstance: any) {
+        const strs = dates.map(d => fpInstance.formatDate(d, 'Y-m-d'))
         setSelectedDates(strs)
         setError('')
 
         // Enforce required date count
         if (tour.dateCount > 1 && dates.length > tour.dateCount) {
-          instance.setDate(strs.slice(-tour.dateCount), false)
+          fpInstance.setDate(strs.slice(-tour.dateCount), false)
         }
 
         // Fetch min seats across selected dates
@@ -138,12 +137,7 @@ export default function BookingPage() {
     return () => clearInterval(interval)
   }, [holdExpiresAt])
 
-  // ── Auto-submit eGate form when fields arrive ─────────────────────────────
-  useEffect(() => {
-    if (egateFields && egateFormRef.current) {
-      egateFormRef.current.submit()
-    }
-  }, [egateFields])
+
 
   // ── Derived price ─────────────────────────────────────────────────────────
   const baseAmount    = calcPrice(tourId, numGuests)
@@ -231,22 +225,36 @@ export default function BookingPage() {
         body: JSON.stringify({ bookingId }),
       })
       const data = await res.json()
-      if (!data.actionUrl) {
+      if (!data.sessionId) {
         setError(data.error ?? 'Payment initiation failed.')
+        setLoading(false)
         return
       }
-      setEgateFields({ ...data.fields, _action: data.actionUrl })
+
+      const Checkout = (window as any).Checkout
+      if (!Checkout) {
+        setError('Payment gateway network error. Please disable adblockers or try again.')
+        setLoading(false)
+        return
+      }
+
+      Checkout.configure({
+        session: { id: data.sessionId },
+      })
+      Checkout.showPaymentPage()
     } catch {
       setError('Could not connect to payment gateway.')
-    } finally {
       setLoading(false)
     }
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+  if (!tour) return null
 
   return (
     <div className="booking-shell">
+      <Script src="https://anzegate.gateway.mastercard.com/static/checkout/checkout.min.js" strategy="lazyOnload" />
+
       {/* Page title */}
       <div style={{ marginBottom: 32 }}>
         <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>← All tours</a>
@@ -476,15 +484,7 @@ export default function BookingPage() {
             {loading ? 'Connecting to payment...' : `Pay TOP$ ${finalAmount.toFixed(2)} Securely →`}
           </button>
 
-          {/* Hidden eGate auto-submit form */}
-          {egateFields && (
-            <form ref={egateFormRef} method="POST" action={egateFields._action} style={{ display: 'none' }}>
-              {Object.entries(egateFields)
-                .filter(([k]) => k !== '_action')
-                .map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)
-              }
-            </form>
-          )}
+
         </div>
       )}
     </div>

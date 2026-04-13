@@ -4,7 +4,7 @@
  * Uses raw SQL with SELECT FOR UPDATE inside Prisma transactions for race-safe reservations.
  */
 import { prisma } from './db'
-import { validatePromo, incrementPromoUses } from './promo'
+import { validatePromo } from './promo'
 import { sendBookingConfirmation, sendOperatorBookingAlert, sendRefundConfirmation } from './mailer'
 import { processEgateRefund } from './egate'
 import type { Booking, BookingDate } from '@prisma/client'
@@ -336,9 +336,13 @@ export async function confirmBooking(
   })
 
   // Send confirmation emails (outside transaction — non-critical)
-  const dates = booking.bookingDates.map((bd) => bd.tourDate.toISOString().slice(0, 10))
-  await sendBookingConfirmation({ booking, dates })
-  await sendOperatorBookingAlert({ booking, dates })
+  try {
+    const dates = booking.bookingDates.map((bd) => bd.tourDate.toISOString().slice(0, 10))
+    await sendBookingConfirmation({ booking, dates })
+    await sendOperatorBookingAlert({ booking, dates })
+  } catch (err) {
+    console.error('[booking] Non-critical error sending confirmation emails:', err)
+  }
 
   return true
 }
