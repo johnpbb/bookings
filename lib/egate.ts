@@ -28,7 +28,7 @@ async function endpoint(): Promise<string> {
   const host = sandbox === 'true'
     ? 'https://anzegate.gateway.mastercard.com'
     : 'https://anzegate.gateway.mastercard.com'
-  return `${host}/api/rest/version/100`
+  return `${host}/api/rest/version/61`
 }
 
 function getAuthHeader(mid: string, pass: string): string {
