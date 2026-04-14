@@ -63,7 +63,7 @@ export async function buildPaymentSession(
   const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/booking/result?order_id=${encodeURIComponent(orderId)}`
 
   const payload = {
-    apiOperation: 'INITIATE_CHECKOUT',
+    apiOperation: 'CREATE_CHECKOUT_SESSION',
     interaction: {
       operation: 'PURCHASE',
       returnUrl,

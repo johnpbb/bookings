@@ -10,11 +10,6 @@ function isWhaleSeasonNow(): boolean {
   return m >= 7 && m <= 10
 }
 
-function isWhaleSeasonNow(): boolean {
-  const m = new Date().getMonth() + 1
-  return m >= 7 && m <= 10
-}
-
 export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
   const router = useRouter()
   const tourId = tour.id
