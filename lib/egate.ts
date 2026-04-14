@@ -21,10 +21,11 @@ async function apiPassword(): Promise<string> {
   return getSetting('egate_shared_secret')
 }
 
-// Ensure base URL looks like: https://anzegate.gateway.mastercard.com/api/rest/version/100
+// Ensure base URL leverages the merchant's configured endpoint or defaults to standard MPGS V61 REST
 async function endpoint(): Promise<string> {
   const sandbox = await getSetting('egate_sandbox', 'true')
-  const host = sandbox === 'true' 
+  const defaultHost = 'https://gateway.mastercard.com'
+  const host = sandbox === 'true'
     ? 'https://anzegate.gateway.mastercard.com'
     : 'https://anzegate.gateway.mastercard.com'
   return `${host}/api/rest/version/100`
@@ -143,8 +144,8 @@ export async function verifyPaymentOrder(orderId: string): Promise<VerifyOrderRe
     })
 
     if (!res.ok) {
-       // Order might not exist if user abandoned before payment
-       return { success: false, status: 'UNKNOWN' }
+      // Order might not exist if user abandoned before payment
+      return { success: false, status: 'UNKNOWN' }
     }
 
     const data = await res.json()
@@ -173,7 +174,7 @@ export async function processEgateRefund(
   const mid = await merchantId()
   const pass = await apiPassword()
   const baseUrl = await endpoint()
-  
+
   // A transaction ID is needed for refunds, unique per refund.
   const txnId = `REF-${Date.now()}`
   const url = `${baseUrl}/merchant/${mid}/order/${orderId}/transaction/${txnId}`
@@ -226,7 +227,7 @@ export async function processEgateRefund(
 
 function generateOrderId(bookingId: number, ref: string): string {
   const hash = crypto.createHash('md5').update(ref).digest('hex').slice(0, 8).toUpperCase()
-  return `TT-${bookingId}-${hash.substring(0,5)}`
+  return `TT-${bookingId}-${hash.substring(0, 5)}`
 }
 
 function friendlyTourName(tourId: string): string {
