@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,56 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── 1. Operating Days ─────────────────────────────────────────────────────────
-// Tracks the combined 16-seat whale watch pool per operating day.
-// Used only during whale season (Jul–Oct). Island/fishing tours are enquiry-only.
 model OperatingDay {
-  id              Int            @id @default(autoincrement())
-  operatingDate   DateTime       @unique @map("operating_date") @db.Date
-  totalSeats      Int            @default(16) @map("total_seats") @db.SmallInt
-  seatsHeld       Int            @default(0) @map("seats_held") @db.SmallInt
-  seatsBooked     Int            @default(0) @map("seats_booked") @db.SmallInt
-  // NULL = no charter. 'mv_ika_nui' or 'mv_huelo' = one vessel chartered (pool → 8 seats)
-  charterVessel   String?        @map("charter_vessel") @db.VarChar(20)
-  // 1 = both vessels chartered, no public bookings accepted
-  isFullyBlocked  Boolean        @default(false) @map("is_fully_blocked")
-  notes           String?        @db.VarChar(255)
-  createdAt       DateTime       @default(now()) @map("created_at")
-
-  bookingDates    BookingDate[]
+  id             Int           @id @default(autoincrement())
+  operatingDate  DateTime      @unique @map("operating_date") @db.Date
+  totalSeats     Int           @default(16) @map("total_seats") @db.SmallInt
+  seatsHeld      Int           @default(0) @map("seats_held") @db.SmallInt
+  seatsBooked    Int           @default(0) @map("seats_booked") @db.SmallInt
+  charterVessel  String?       @map("charter_vessel") @db.VarChar(20)
+  isFullyBlocked Boolean       @default(false) @map("is_fully_blocked")
+  notes          String?       @db.VarChar(255)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  bookingDates   BookingDate[]
 
   @@map("tt_operating_days")
 }
 
-// ── 2. Bookings ───────────────────────────────────────────────────────────────
-// One row per booking (covers one or more dates for multi-day packages).
 model Booking {
-  id              Int            @id @default(autoincrement())
-  reference       String         @unique @db.VarChar(20)          // e.g. TT-2026-00142
-  tourId          String         @map("tour_id") @db.VarChar(30)  // e.g. whale_3day
-  bookingType     String         @default("online") @map("booking_type") @db.VarChar(10) // 'online' | 'enquiry'
-  assignedVessel  String?        @map("assigned_vessel") @db.VarChar(20) // operator sets after booking
-  guestName       String         @map("guest_name") @db.VarChar(120)
-  guestEmail      String         @map("guest_email") @db.VarChar(120)
-  guestPhone      String?        @map("guest_phone") @db.VarChar(30)
-  numGuests       Int            @map("num_guests") @db.SmallInt
-  amountTop       Decimal        @map("amount_top") @db.Decimal(10, 2)
-  // pending_payment | confirmed | pending_minimum | cancelled | refunded | refund_failed
-  status          String         @default("pending_payment") @db.VarChar(20)
-  egateOrderId    String?        @unique @map("egate_order_id") @db.VarChar(60)
-  egateTxnRef     String?        @map("egate_txn_ref") @db.VarChar(60)
-  specialRequests String?        @map("special_requests") @db.Text
-  promoCode       String?        @map("promo_code") @db.VarChar(30)
-  discountTop     Decimal        @default(0) @map("discount_top") @db.Decimal(10, 2)
-  refundAmountTop Decimal?       @map("refund_amount_top") @db.Decimal(10, 2)
-  refundedAt      DateTime?      @map("refunded_at")
-  cancelReason    String?        @map("cancel_reason") @db.Text
-  holdExpiresAt   DateTime?      @map("hold_expires_at")
-  confirmedAt     DateTime?      @map("confirmed_at")
-  ipAddress       String?        @map("ip_address") @db.VarChar(45)
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-
+  id              Int           @id @default(autoincrement())
+  reference       String        @unique @db.VarChar(20)
+  tourId          String        @map("tour_id") @db.VarChar(30)
+  bookingType     String        @default("online") @map("booking_type") @db.VarChar(10)
+  assignedVessel  String?       @map("assigned_vessel") @db.VarChar(20)
+  guestName       String        @map("guest_name") @db.VarChar(120)
+  guestEmail      String        @map("guest_email") @db.VarChar(120)
+  guestPhone      String?       @map("guest_phone") @db.VarChar(30)
+  numGuests       Int           @map("num_guests") @db.SmallInt
+  amountTop       Decimal       @map("amount_top") @db.Decimal(10, 2)
+  status          String        @default("pending_payment") @db.VarChar(20)
+  egateOrderId    String?       @unique @map("egate_order_id") @db.VarChar(60)
+  egateTxnRef     String?       @map("egate_txn_ref") @db.VarChar(60)
+  specialRequests String?       @map("special_requests")
+  promoCode       String?       @map("promo_code") @db.VarChar(30)
+  discountTop     Decimal       @default(0) @map("discount_top") @db.Decimal(10, 2)
+  refundAmountTop Decimal?      @map("refund_amount_top") @db.Decimal(10, 2)
+  refundedAt      DateTime?     @map("refunded_at")
+  cancelReason    String?       @map("cancel_reason")
+  holdExpiresAt   DateTime?     @map("hold_expires_at")
+  confirmedAt     DateTime?     @map("confirmed_at")
+  ipAddress       String?       @map("ip_address") @db.VarChar(45)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
   bookingDates    BookingDate[]
 
   @@index([status])
@@ -67,15 +54,12 @@ model Booking {
   @@map("tt_bookings")
 }
 
-// ── 3. Booking Dates ──────────────────────────────────────────────────────────
-// One row per date per booking — drives seat deduction on each operating day.
 model BookingDate {
   id             Int          @id @default(autoincrement())
   bookingId      Int          @map("booking_id")
   operatingDayId Int          @map("operating_day_id")
   tourDate       DateTime     @map("tour_date") @db.Date
   seatsReserved  Int          @map("seats_reserved") @db.SmallInt
-
   booking        Booking      @relation(fields: [bookingId], references: [id])
   operatingDay   OperatingDay @relation(fields: [operatingDayId], references: [id])
 
@@ -84,22 +68,18 @@ model BookingDate {
   @@map("tt_booking_dates")
 }
 
-// ── 4. Enquiries ──────────────────────────────────────────────────────────────
-// Pattern 2 enquiry submissions (charter, game fishing, island excl.)
-// No inventory is touched.
 model Enquiry {
   id             Int      @id @default(autoincrement())
   tourId         String   @map("tour_id") @db.VarChar(30)
-  preferredDates String?  @map("preferred_dates") @db.Text
+  preferredDates String?  @map("preferred_dates")
   guestName      String   @map("guest_name") @db.VarChar(120)
   guestEmail     String   @map("guest_email") @db.VarChar(120)
   guestPhone     String?  @map("guest_phone") @db.VarChar(30)
   groupSize      Int?     @map("group_size") @db.SmallInt
-  message        String?  @db.Text
+  message        String?
   whaleAddon     Boolean  @default(false) @map("whale_addon")
-  // new | contacted | confirmed | declined
   status         String   @default("new") @db.VarChar(20)
-  adminNotes     String?  @map("admin_notes") @db.Text
+  adminNotes     String?  @map("admin_notes")
   ipAddress      String?  @map("ip_address") @db.VarChar(45)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -109,29 +89,24 @@ model Enquiry {
   @@map("tt_enquiries")
 }
 
-// ── 5. Promo Codes ────────────────────────────────────────────────────────────
 model PromoCode {
-  id               Int      @id @default(autoincrement())
-  code             String   @unique @db.VarChar(30)
-  // 'fixed' | 'percent'
-  discountType     String   @map("discount_type") @db.VarChar(10)
-  discountValue    Decimal  @map("discount_value") @db.Decimal(10, 2)
-  // comma-separated tour slugs, NULL = all tours
-  applicableTours  String?  @map("applicable_tours") @db.VarChar(255)
-  validDateStart   DateTime? @map("valid_date_start") @db.Date
-  validDateEnd     DateTime? @map("valid_date_end") @db.Date
-  excludeSundays   Boolean  @default(false) @map("exclude_sundays")
-  maxUses          Int?     @map("max_uses")
-  usesCount        Int      @default(0) @map("uses_count")
-  isActive         Boolean  @default(true) @map("is_active")
-  notes            String?  @db.VarChar(255)
-  createdAt        DateTime @default(now()) @map("created_at")
+  id              Int       @id @default(autoincrement())
+  code            String    @unique @db.VarChar(30)
+  discountType    String    @map("discount_type") @db.VarChar(10)
+  discountValue   Decimal   @map("discount_value") @db.Decimal(10, 2)
+  applicableTours String?   @map("applicable_tours") @db.VarChar(255)
+  validDateStart  DateTime? @map("valid_date_start") @db.Date
+  validDateEnd    DateTime? @map("valid_date_end") @db.Date
+  excludeSundays  Boolean   @default(false) @map("exclude_sundays")
+  maxUses         Int?      @map("max_uses")
+  usesCount       Int       @default(0) @map("uses_count")
+  isActive        Boolean   @default(true) @map("is_active")
+  notes           String?   @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   @@map("tt_promo_codes")
 }
 
-// ── 6. Admin Users ────────────────────────────────────────────────────────────
-// Stores admin credentials for the booking engine panel.
 model AdminUser {
   id           Int      @id @default(autoincrement())
   email        String   @unique @db.VarChar(120)
@@ -142,11 +117,9 @@ model AdminUser {
   @@map("tt_admin_users")
 }
 
-// ── 7. Settings ───────────────────────────────────────────────────────────────
-// Key-value store for operator-configurable settings.
 model Setting {
-  key       String @id @db.VarChar(80)
-  value     String @db.Text
+  key       String   @id @db.VarChar(80)
+  value     String
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("tt_settings")

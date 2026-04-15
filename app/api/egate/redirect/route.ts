@@ -24,11 +24,15 @@ export async function POST(req: NextRequest) {
       reference: booking.reference,
       tourId: booking.tourId,
       amountTop: booking.amountTop,
+      origin: req.nextUrl.origin,
     })
 
     return NextResponse.json(sessionData)
-  } catch (err) {
-    console.error('[api/egate/redirect]', err)
-    return NextResponse.json({ error: 'Payment redirect error.' }, { status: 500 })
+  } catch (err: any) {
+    console.error('[api/egate/redirect] Error:', err)
+    return NextResponse.json({ 
+      error: 'Payment redirect error.', 
+      details: err.message || 'Unknown error'
+    }, { status: 500 })
   }
 }

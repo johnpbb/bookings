@@ -24,11 +24,9 @@ async function apiPassword(): Promise<string> {
 // Ensure base URL leverages the merchant's configured endpoint or defaults to standard MPGS V61 REST
 async function endpoint(): Promise<string> {
   const sandbox = await getSetting('egate_sandbox', 'true')
-  const defaultHost = 'https://gateway.mastercard.com'
-  const host = sandbox === 'true'
-    ? 'https://anzegate.gateway.mastercard.com'
-    : 'https://anzegate.gateway.mastercard.com'
-  return `${host}/api/rest/version/61`
+  // For ANZ eGate, the host is usually the same for sandbox and production
+  const host = 'https://anzegate.gateway.mastercard.com'
+  return `${host}/api/rest/version/100`
 }
 
 function getAuthHeader(mid: string, pass: string): string {
@@ -51,6 +49,7 @@ export async function buildPaymentSession(
     tourId: string
     amountTop: number | string | { toString(): string }
     currency?: string
+    origin?: string
   },
 ): Promise<EgateSessionResult> {
   const mid = await merchantId()
@@ -61,10 +60,13 @@ export async function buildPaymentSession(
   const amount = Number(booking.amountTop).toFixed(2)
   const currency = booking.currency ?? 'TOP'
   const orderId = generateOrderId(bookingId, booking.reference)
-  const returnUrl = `${process.env.NEXT_PUBLIC_APP_URL}/booking/result?order_id=${encodeURIComponent(orderId)}`
+  
+  // Use provided origin, or env var, or fallback
+  const baseAppUrl = booking.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://tahitonga.com'
+  const returnUrl = `${baseAppUrl}/booking/result?order_id=${encodeURIComponent(orderId)}`
 
   const payload = {
-    apiOperation: 'CREATE_CHECKOUT_SESSION',
+    apiOperation: 'INITIATE_CHECKOUT',
     interaction: {
       operation: 'PURCHASE',
       returnUrl,
@@ -72,7 +74,7 @@ export async function buildPaymentSession(
         name: 'Tahi Tonga',
       },
       displayControl: {
-        billingAddress: 'HIDE', // simplify checkout
+        billingAddress: 'HIDE',
       }
     },
     order: {
@@ -95,7 +97,7 @@ export async function buildPaymentSession(
   if (!res.ok) {
     const errText = await res.text()
     console.error('[eGate] Failed to create session:', errText)
-    throw new Error('Could not create payment session.')
+    throw new Error(`eGate Session Error: ${res.status} - ${errText}`)
   }
 
   const data = await res.json()
