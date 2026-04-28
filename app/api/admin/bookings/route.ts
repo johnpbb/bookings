@@ -65,3 +65,54 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
 }
+
+// POST /api/admin/bookings — Create manual offline booking
+export async function POST(req: NextRequest) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
+  try {
+    const body = await req.json()
+    const { 
+      tourId, 
+      dates, 
+      numGuests, 
+      guestName, 
+      guestEmail, 
+      guestPhone, 
+      specialRequests, 
+      amountTop, 
+      assignedVessel 
+    } = body
+
+    if (!tourId || !dates || !Array.isArray(dates) || dates.length === 0 || !numGuests || !guestName || !guestEmail) {
+      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
+    }
+
+    const { createManualBooking } = await import('@/lib/booking')
+    const result = await createManualBooking({
+      tourId,
+      dates,
+      numGuests: parseInt(numGuests, 10),
+      guestName,
+      guestEmail,
+      guestPhone,
+      specialRequests,
+      amountTop: parseFloat(amountTop ?? '0'),
+      assignedVessel,
+    })
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
+    }
+
+    // Return the newly added/confirmed booking
+    const { getBooking } = await import('@/lib/booking')
+    const newBooking = await getBooking(result.bookingId!)
+
+    return NextResponse.json({ success: true, booking: newBooking })
+  } catch (err: any) {
+    console.error('[api/admin/bookings] POST error:', err)
+    return NextResponse.json({ error: err.message || 'Internal server error.' }, { status: 500 })
+  }
+}

@@ -1,0 +1,70 @@
+import * as fs from 'fs'
+
+async function run() {
+  const guestHtml = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e;border:1px solid #eee;border-radius:8px;overflow:hidden">
+      <div style="background:#0a4f6e;padding:32px 24px;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:22px">Booking Confirmed! 🐋</h1>
+      </div>
+      <div style="padding:32px 24px;background:#fff">
+        <p>Hi <strong>John Doe</strong>,</p>
+        <p>Your booking for <strong>3 Day Whale Swim Package</strong> is confirmed. We can't wait to welcome you!</p>
+
+        <table style="width:100%;border-collapse:collapse;margin:24px 0">
+          <tr><td style="padding:8px;color:#666">Booking Ref</td><td style="padding:8px;font-weight:bold">TT-MOCK101</td></tr>
+          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Tour</td><td style="padding:8px">3 Day Whale Swim Package</td></tr>
+          <tr><td style="padding:8px;color:#666">Guest</td><td style="padding:8px">John Doe</td></tr>
+          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Guests</td><td style="padding:8px">2</td></tr>
+          <tr><td style="padding:8px;color:#666">Date(s)</td><td style="padding:8px">Wednesday, 15 Oct 2026<br/>Thursday, 16 Oct 2026<br/>Friday, 17 Oct 2026</td></tr>
+          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Amount Paid</td><td style="padding:8px;font-weight:bold">TOP$ 1,850.00</td></tr>
+        </table>
+
+        <h3 style="color:#0a4f6e;margin-top:24px">Meeting Point</h3>
+        <p>The main wharf at Neiafu (Port of Refuge) at 07:30 AM.</p>
+
+        <h3 style="color:#0a4f6e;margin-top:24px">What's Included</h3>
+        <p>Wetsuits, snorkels, fins, onboard lunch, and safety briefings.</p>
+
+        <h3 style="color:#0a4f6e;margin-top:24px">What to Bring</h3>
+        <p>Towel, sunscreen (reef-safe), motion sickness tablets, and your sense of adventure!</p>
+
+        <p style="margin-top:32px;font-size:0.9rem">Our <a href="https://tahitonga.com/terms-conditions/" style="color:#0a4f6e;font-weight:bold">cancellation policy</a> applies to this reservation.</p>
+        <p style="font-size:0.9rem">Questions? Reply directly to this email or reach us at <a href="mailto:info@tahitonga.com" style="color:#0a4f6e">info@tahitonga.com</a></p>
+        <p style="color:#999;font-size:11px;margin-top:40px;text-align:center;border-top:1px solid #eee;padding-top:16px">Tahi Tonga Whale Watching · Neiafu, Vavaʻu, Tonga</p>
+      </div>
+    </div>
+  `
+
+  const adminHtml = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e;border:1px solid #eee;border-radius:8px;overflow:hidden">
+      <h2 style="background:#0a4f6e;color:#fff;padding:24px;margin:0;font-size:18px">
+        New Operator Alert: TT-MOCK101
+      </h2>
+      <div style="padding:24px;background:#fff">
+        <p>A new offline booking has been manually processed via the admin interface.</p>
+        
+        <table style="width:100%;border-collapse:collapse;margin:20px 0">
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 0;color:#666;width:140px">Tour Type</td><td style="padding:10px 0;font-weight:bold">3 Day Whale Swim Package</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 0;color:#666">Primary Guest</td><td style="padding:10px 0">John Doe</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 0;color:#666">Email</td><td style="padding:10px 0"><a href="mailto:jdoe@example.com" style="color:#0a4f6e">jdoe@example.com</a></td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 0;color:#666">Guests Count</td><td style="padding:10px 0">2</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 0;color:#666">Assigned Dates</td><td style="padding:10px 0">15-17 Oct 2026</td></tr>
+          <tr style="border-bottom:1px solid #eee"><td style="padding:10px 0;color:#666">Total Amount</td><td style="padding:10px 0;font-weight:bold;color:#2e7d32">TOP$ 1,850.00</td></tr>
+        </table>
+        
+        <p style="margin-top:24px;text-align:center">
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/bookings" 
+             style="background:#0a4f6e;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold">
+            Open Bookings Portal
+          </a>
+        </p>
+      </div>
+    </div>
+  `
+
+  fs.writeFileSync('preview_guest.html', guestHtml)
+  fs.writeFileSync('preview_admin.html', adminHtml)
+  console.log('Template previews exported!')
+}
+
+run()

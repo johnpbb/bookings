@@ -10,16 +10,20 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const { online: BOOKING_TOURS, enquiry: ENQUIRY_TOURS } = await getToursConfig()
-  
+
   return (
     <>
       {/* Hero */}
       <section className="hero">
-        <div className="container">
+        <div className="hero-slider">
+          <div className="hero-slide" style={{ backgroundImage: "url('/Tahi Tonga Swim with whales.jpg')" }} />
+          <div className="hero-slide" style={{ backgroundImage: "url('/Ika Nui.jpg')" }} />
+        </div>
+        <div className="hero-overlay" />
+        <div className="container hero-content">
           <h1 className="display-serif">Book Your Tonga Experience</h1>
           <p>
-            Whale watching, outer reef adventures, and island escapes out of Neiafu, Vavaʻu.
-            Real-time seat availability · Secure payment in TOP.
+            Offering whale swimming, island snorkelling and game fishing tours from the main island of Tongatapu, in The Kingdom of Tonga!
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="#online-booking" className="btn btn-primary btn-lg">Book Online Now</a>

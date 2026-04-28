@@ -62,7 +62,7 @@ export async function sendBookingConfirmation({
   dates: string[]
 }) {
   const meetingPoint = await getSetting('email_meeting_point')
-  const inclusions  = await getSetting('email_inclusions')
+  const inclusions = await getSetting('email_inclusions')
   const whatToBring = await getSetting('email_what_to_bring')
 
   const dateList = dates.map((d) => `• ${formatDate(d)}`).join('\n')
@@ -74,7 +74,7 @@ export async function sendBookingConfirmation({
         <h1 style="color:#fff;margin:0;font-size:22px">Booking Confirmed! 🐋</h1>
       </div>
       <div style="padding:32px 24px;background:#fff">
-        <p>Kia orana ${booking.guestName},</p>
+        <p>Hi ${booking.guestName},</p>
         <p>Your booking for <strong>${await tourName(booking.tourId)}</strong> is confirmed. We can't wait to welcome you!</p>
 
         <table style="width:100%;border-collapse:collapse;margin:24px 0">

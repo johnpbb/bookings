@@ -37,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="admin-layout">
           <aside className="admin-sidebar">
             <div className="admin-sidebar__logo">
-              🐋 Tahi Tonga<br />
+              <img src="/Logo.png" alt="Tahi Tonga Logo" style={{ height: 36, width: 'auto', marginBottom: 6 }} /><br />
               <span style={{ fontSize: '0.75rem', opacity: 0.6, fontFamily: 'Inter, sans-serif' }}>Booking Admin</span>
             </div>
             <nav className="admin-sidebar__nav">

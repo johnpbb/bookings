@@ -425,6 +425,100 @@ export async function cancelConfirmed(
   return { success: true, refundAmount }
 }
 
+// ── CREATE MANUAL BOOKING (admin-initiated) ───────────────────────────────────
+
+export async function createManualBooking(args: {
+  tourId: string
+  dates: string[]
+  numGuests: number
+  guestName: string
+  guestEmail: string
+  guestPhone?: string
+  specialRequests?: string
+  amountTop: number
+  assignedVessel?: string
+}): Promise<{ success: boolean; bookingId?: number; error?: string }> {
+  const bookingRef = await generateRef()
+
+  try {
+    const result = await (prisma as any).$transaction(async (tx: any) => {
+      const booking = await tx.booking.create({
+        data: {
+          reference: bookingRef,
+          tourId: args.tourId,
+          bookingType: 'manual',
+          guestName: args.guestName.trim(),
+          guestEmail: args.guestEmail.toLowerCase().trim(),
+          guestPhone: args.guestPhone?.trim() ?? null,
+          numGuests: args.numGuests,
+          amountTop: args.amountTop,
+          status: 'confirmed',
+          confirmedAt: new Date(),
+          specialRequests: args.specialRequests?.trim() ?? null,
+          assignedVessel: args.assignedVessel ?? null,
+        },
+      })
+
+      for (const date of args.dates) {
+        const dateObj = new Date(date)
+        const opDay = await tx.operatingDay.findUnique({
+          where: { operatingDate: dateObj }
+        })
+        let opDayId: number
+        
+        if (!opDay) {
+          const newOp = await tx.operatingDay.create({
+            data: { 
+              operatingDate: dateObj, 
+              totalSeats: 16, 
+              seatsBooked: args.numGuests 
+            }
+          })
+          opDayId = newOp.id
+        } else {
+          opDayId = opDay.id
+          await tx.operatingDay.update({
+            where: { id: opDayId },
+            data: { seatsBooked: { increment: args.numGuests } }
+          })
+        }
+
+        await tx.bookingDate.create({
+          data: {
+            bookingId: booking.id,
+            operatingDayId: opDayId,
+            tourDate: dateObj,
+            seatsReserved: args.numGuests,
+          },
+        })
+      }
+
+      return booking
+    })
+
+    const dates = args.dates.sort()
+    const bookingFull = await prisma.booking.findUnique({
+      where: { id: result.id },
+    })
+
+    if (bookingFull) {
+      (async () => {
+        try {
+          await sendBookingConfirmation({ booking: bookingFull, dates })
+          await sendOperatorBookingAlert({ booking: bookingFull, dates })
+        } catch (err) {
+          console.error('[booking] Non-critical error sending manual confirmation emails:', err)
+        }
+      })()
+    }
+
+    return { success: true, bookingId: result.id }
+  } catch (err: any) {
+    console.error('[createManualBooking] Error:', err)
+    return { success: false, error: err.message || 'Failed to create manual booking.' }
+  }
+}
+
 // ── GET helpers ───────────────────────────────────────────────────────────────
 
 export async function getBooking(id: number): Promise<BookingWithDates | null> {

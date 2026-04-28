@@ -23,10 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="site-header">
           <div className="container">
             <a href="/" className="site-logo">
-              <span className="emoji">🐋</span>
-              Tahi Tonga
+              <img src="/Logo.png" alt="Tahi Tonga" style={{ height: 'auto', width: 80 }} />
             </a>
-            <a href="https://tahitonga.com" className="btn btn-ghost btn-sm">
+            <a href="https://tahitonga.com" className="btn btn-outline btn-sm">
               ← Back to main site
             </a>
           </div>
@@ -38,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <footer className="site-footer">
           <div className="container">
-            <p>© {new Date().getFullYear()} Tahi Tonga Whale Watching · Neiafu, Vavaʻu, Tonga</p>
+            <p>© {new Date().getFullYear()} Tahi Tonga</p>
             <p style={{ marginTop: 8 }}>
               <a href="https://tahitonga.com/terms-conditions/">Cancellation Policy</a>
               {' · '}
