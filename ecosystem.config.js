@@ -10,7 +10,7 @@ module.exports = {
     {
       name: 'tahi-bookings',
       script: 'node_modules/.bin/next',
-      args: 'start',
+      args: 'start -p 12881',
       cwd: './',
       env: {
         NODE_ENV: 'production',
