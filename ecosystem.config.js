@@ -11,7 +11,7 @@ module.exports = {
       name: 'tahi-bookings',
       script: 'node_modules/.bin/next',
       args: 'start -p 12881',
-      cwd: './',
+      cwd: '/home/tahi_bookings/apps/tahi_booking',
       env: {
         NODE_ENV: 'production',
         PORT: 12881,
