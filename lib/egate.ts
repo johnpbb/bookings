@@ -61,8 +61,9 @@ export async function buildPaymentSession(
   const currency = booking.currency ?? 'TOP'
   const orderId = generateOrderId(bookingId, booking.reference)
   
-  // Use provided origin, or env var, or fallback
-  const baseAppUrl = booking.origin || process.env.NEXT_PUBLIC_APP_URL || 'https://tahitonga.com'
+  // Use Database setting, then runtime APP_URL, then fallback
+  const dbAppUrl = await getSetting('app_url')
+  const baseAppUrl = booking.origin || dbAppUrl || process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://bookings.tahitonga.com'
   const returnUrl = `${baseAppUrl}/booking/result?order_id=${encodeURIComponent(orderId)}`
 
   const payload = {

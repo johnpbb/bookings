@@ -53,8 +53,8 @@ async function testEgate() {
         console.log('Status:', res.status);
         const text = await res.text();
         console.log('Response:', text);
-      } catch (err) {
-        console.error('Fetch error:', err.message);
+      } catch (err: any) {
+        console.error('Fetch error:', err?.message || err);
       }
     }
   }

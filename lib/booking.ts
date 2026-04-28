@@ -299,9 +299,9 @@ export async function confirmBooking(
     include: { bookingDates: true },
   })
 
-  if (!booking || booking.status !== 'pending_payment') return false
-
-  await prisma.$transaction(async (tx) => {
+  if (!booking || booking.status !== 'pending_payment') return false;
+  
+  await (prisma as any).$transaction(async (tx: any) => {
     await tx.booking.update({
       where: { id: bookingId },
       data: {
@@ -325,14 +325,16 @@ export async function confirmBooking(
     }
   })
 
-  // Send confirmation emails (outside transaction — non-critical)
-  try {
-    const dates = booking.bookingDates.map((bd) => bd.tourDate.toISOString().slice(0, 10))
-    await sendBookingConfirmation({ booking, dates })
-    await sendOperatorBookingAlert({ booking, dates })
-  } catch (err) {
-    console.error('[booking] Non-critical error sending confirmation emails:', err)
-  }
+  // Send confirmation emails (background — non-blocking)
+  (async () => {
+    try {
+      const dates = booking.bookingDates.map((bd) => bd.tourDate.toISOString().slice(0, 10))
+      await sendBookingConfirmation({ booking, dates })
+      await sendOperatorBookingAlert({ booking, dates })
+    } catch (err) {
+      console.error('[booking] Non-critical error sending confirmation emails:', err)
+    }
+  })()
 
   return true
 }

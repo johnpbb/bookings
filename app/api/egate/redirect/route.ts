@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
       reference: booking.reference,
       tourId: booking.tourId,
       amountTop: booking.amountTop,
-      origin: req.nextUrl.origin,
     })
 
     return NextResponse.json(sessionData)
