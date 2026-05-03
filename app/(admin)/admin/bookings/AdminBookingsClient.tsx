@@ -76,15 +76,18 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
     specialRequests: ''
   })
 
-  const filtered = bookings.filter(b =>
-    (!filter.status || b.status === filter.status) &&
-    (!filter.tour   || b.tourId === filter.tour) &&
-    (!search || 
-      b.guestName.toLowerCase().includes(search.toLowerCase()) ||
-      b.guestEmail.toLowerCase().includes(search.toLowerCase()) ||
-      b.reference.toLowerCase().includes(search.toLowerCase())
+  const filtered = bookings.filter(b => {
+    if (filter.status && b.status !== filter.status) return false
+    if (filter.tour   && b.tourId !== filter.tour)   return false
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      b.guestName.toLowerCase().includes(q) ||
+      b.guestEmail.toLowerCase().includes(q) ||
+      b.reference.toLowerCase().includes(q) ||
+      b.bookingDates.some(bd => bd.tourDate.toString().slice(0, 10).includes(q))
     )
-  )
+  })
 
   const getEarliestDate = (b: BookingWithDates) => {
     if (!b.bookingDates || b.bookingDates.length === 0) return 0
@@ -343,7 +346,7 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <input 
           type="text" 
-          placeholder="Search ref, name, email..." 
+          placeholder="Search ref, name, email, date (2026-08-15)..."
           value={search} 
           onChange={e => setSearch(e.target.value)}
           style={{ padding: '8px 14px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.88rem', minWidth: 220 }}
