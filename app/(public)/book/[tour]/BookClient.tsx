@@ -21,7 +21,7 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
 
   const [step, setStep] = useState(0)
   const [selectedDates, setSelectedDates] = useState<string[]>([])
-  const [availability, setAvailability] = useState<{ available: string[]; partial: string[]; unavailable: string[] } | null>(null)
+  const [availability, setAvailability] = useState<{ available: string[]; partial: string[]; unavailable: string[]; partialCounts: Record<string, number> } | null>(null)
   const [maxSeats, setMaxSeats] = useState<number>(16)
 
   // Step 2: guest details
@@ -62,20 +62,35 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
 
     const enabledDates = [...(availability.available ?? []), ...(availability.partial ?? [])]
 
+    const availSet    = new Set(availability.available ?? [])
+    const partialSet  = new Set(availability.partial ?? [])
+    const fullSet     = new Set(availability.unavailable ?? [])
+    const partialCounts = availability.partialCounts ?? {}
+
     const instance = fp('#date-picker', {
       mode: tour.dateCount > 1 ? 'multiple' : 'single',
       minDate: 'today',
       enable: enabledDates,
       dateFormat: 'Y-m-d',
       disableMobile: false,
-      onReady(_: unknown, __: unknown, fpSelf: any) {
-        // Mark partial dates
-        fpSelf.config.enable.forEach((d: string) => {
-          if (availability.partial?.includes(d)) {
-            const el = fpSelf.calendarContainer?.querySelector(`[aria-label*="${d}"]`)
-            if (el) el.classList.add('partial-availability')
+      onDayCreate(_: unknown, __: unknown, ___: unknown, dayElem: any) {
+        const d = dayElem.dateObj
+        if (!d) return
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        if (partialSet.has(dateStr)) {
+          dayElem.classList.add('day-partial')
+          const count = partialCounts[dateStr]
+          if (count !== undefined) {
+            const badge = document.createElement('span')
+            badge.className = 'day-count'
+            badge.textContent = String(count)
+            dayElem.appendChild(badge)
           }
-        })
+        } else if (availSet.has(dateStr)) {
+          dayElem.classList.add('day-available')
+        } else if (fullSet.has(dateStr)) {
+          dayElem.classList.add('day-unavailable')
+        }
       },
       onChange(dates: Date[], dateStr: string, fpInstance: any) {
         const strs = dates.map(d => fpInstance.formatDate(d, 'Y-m-d'))

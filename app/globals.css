@@ -728,9 +728,39 @@ h3 {
   border-color: var(--ocean-bright) !important;
 }
 
-.flatpickr-day.partial-availability {
-  background: #fff3cd;
-  color: #856404;
+.flatpickr-day.day-available::after,
+.flatpickr-day.day-unavailable::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.flatpickr-day.day-available::after   { background: var(--success); }
+.flatpickr-day.day-unavailable::after { background: var(--error); }
+
+.day-count {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--warning);
+  position: absolute;
+  bottom: 3px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.flatpickr-day.selected .day-count,
+.flatpickr-day.selected:hover .day-count {
+  color: rgba(255, 255, 255, .85);
 }
 
 .flatpickr-day:hover:not(.disabled) {

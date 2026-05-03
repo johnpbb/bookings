@@ -8,6 +8,7 @@ export interface DayAvailability {
   available: string[]  // dates with seats free (>4 seats remaining)
   partial: string[]    // dates with 1–4 seats remaining
   unavailable: string[] // fully booked or blocked
+  partialCounts: Record<string, number> // seats remaining for each partial date
 }
 
 // ── Month availability (public calendar) ──────────────────────────────────────
@@ -106,6 +107,7 @@ function classifyRows(rows: OperatingDayRow[]): DayAvailability {
   const available: string[] = []
   const partial: string[] = []
   const unavailable: string[] = []
+  const partialCounts: Record<string, number> = {}
 
   for (const row of rows) {
     const d = row.operatingDate.toISOString().slice(0, 10)
@@ -115,11 +117,11 @@ function classifyRows(rows: OperatingDayRow[]): DayAvailability {
     }
     const free = row.totalSeats - row.seatsHeld - row.seatsBooked
     if (free <= 0)      unavailable.push(d)
-    else if (free <= 4) partial.push(d)
+    else if (free <= 4) { partial.push(d); partialCounts[d] = free }
     else                available.push(d)
   }
 
-  return { available, partial, unavailable }
+  return { available, partial, unavailable, partialCounts }
 }
 
 // ── Bulk generate operating days (admin) ──────────────────────────────────────
