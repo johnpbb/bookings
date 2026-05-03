@@ -161,7 +161,9 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     if (!promo.valid) {
       return { success: false, error: promo.error }
     }
-    promoDiscount = promo.discount!
+    promoDiscount = promo.discountType === 'percent'
+      ? Math.round(baseAmount * promo.discount! / 100 * 100) / 100
+      : promo.discount!
     promoCodeUsed = promo.code!
   }
 
@@ -301,7 +303,7 @@ export async function confirmBooking(
 
   if (!booking || booking.status !== 'pending_payment') return false;
   
-  await (prisma as any).$transaction(async (tx: any) => {
+  await prisma.$transaction(async (tx) => {
     await tx.booking.update({
       where: { id: bookingId },
       data: {
@@ -323,7 +325,7 @@ export async function confirmBooking(
         WHERE id = ${bd.operatingDayId}
       `
     }
-  })
+  });
 
   // Send confirmation emails (background — non-blocking)
   (async () => {
@@ -441,7 +443,7 @@ export async function createManualBooking(args: {
   const bookingRef = await generateRef()
 
   try {
-    const result = await (prisma as any).$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx) => {
       const booking = await tx.booking.create({
         data: {
           reference: bookingRef,

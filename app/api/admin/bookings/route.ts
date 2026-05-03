@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const page   = parseInt(searchParams.get('page') ?? '1', 10)
-  const limit  = 50
+  const limit  = parseInt(searchParams.get('limit') ?? '50', 10)
   const status = searchParams.get('status')
   const tour   = searchParams.get('tour')
   const from   = searchParams.get('from')

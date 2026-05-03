@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { sendEnquiryNotification } from '@/lib/mailer'
+import { checkCsrf } from '@/lib/csrf'
 
 export async function POST(req: NextRequest) {
+  const csrfError = checkCsrf(req)
+  if (csrfError) return csrfError
+
   try {
     const body = await req.json()
     const {

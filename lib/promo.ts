@@ -8,7 +8,8 @@ import { prisma } from './db'
 export interface PromoValidationResult {
   valid: boolean
   code?: string
-  discount?: number
+  discount?: number      // raw value: dollar amount if 'fixed', percentage points if 'percent'
+  discountType?: string  // 'fixed' | 'percent'
   error?: string
 }
 
@@ -72,20 +73,11 @@ export async function validatePromo(
     }
   }
 
-  // Calculate discount amount
-  let discount: number
-  if (promo.discountType === 'percent') {
-    // Caller calculates base amount; just return percent for now
-    // Resolve to a fixed amount if needed (handled at booking layer)
-    discount = Number(promo.discountValue)
-  } else {
-    discount = Number(promo.discountValue)
-  }
-
   return {
     valid: true,
     code: upperCode,
-    discount,
+    discount: Number(promo.discountValue),
+    discountType: promo.discountType,
   }
 }
 

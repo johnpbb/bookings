@@ -14,12 +14,6 @@ interface Booking {
   tourName?: string
 }
 
-const TOUR_NAMES: Record<string, string> = {
-  whale_day_trip: 'Ultimate Day Trip',
-  whale_3day: '3-Day Special',
-  whale_5day: '5-Day Special',
-  island_reef: 'Outer Reef Excursion',
-}
 
 function ResultContent() {
   const params = useSearchParams()

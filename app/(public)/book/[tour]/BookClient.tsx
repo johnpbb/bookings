@@ -6,7 +6,7 @@ import Script from 'next/script'
 
 import { OnlineTour } from '@/lib/tours'
 
-type PromoResult = { valid: boolean; discount?: number; code?: string; error?: string }
+type PromoResult = { valid: boolean; discount?: number; discountType?: string; code?: string; error?: string }
 
 function calcPrice(tour: OnlineTour, numGuests: number): number {
   if (tour.id === 'island_reef') {
@@ -87,14 +87,18 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
           fpInstance.setDate(strs.slice(-tour.dateCount), false)
         }
 
-        // Fetch min seats across selected dates
+        // Fetch actual min seats across selected dates to cap the guest selector
         if (strs.length > 0) {
-          fetch(`/api/availability?mode=upcoming&days=365`)
-            .then(() => {
-              // Estimate from loaded availability — the min seats calc needs a separate endpoint
-              // For now set a reasonable default
-              setMaxSeats(16)
+          fetch(`/api/availability?mode=min-seats&dates=${strs.join(',')}`)
+            .then(r => r.json())
+            .then(data => {
+              const max = data.minSeats ?? 16
+              setMaxSeats(max)
+              setNumGuests(prev => Math.min(prev, max))
             })
+            .catch(() => setMaxSeats(16))
+        } else {
+          setMaxSeats(16)
         }
       },
     })
@@ -124,9 +128,13 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
 
 
   // ── Derived price ─────────────────────────────────────────────────────────
-  const baseAmount    = calcPrice(tour, numGuests)
-  const promoDiscount = (promoResult?.valid ? promoResult.discount ?? 0 : 0)
-  const finalAmount   = Math.max(0, baseAmount - promoDiscount)
+  const baseAmount = calcPrice(tour, numGuests)
+  const promoDiscount = promoResult?.valid
+    ? promoResult.discountType === 'percent'
+      ? Math.round(baseAmount * (promoResult.discount ?? 0) / 100 * 100) / 100
+      : (promoResult.discount ?? 0)
+    : 0
+  const finalAmount = Math.max(0, baseAmount - promoDiscount)
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 

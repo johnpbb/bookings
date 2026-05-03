@@ -11,7 +11,7 @@ export default async function AdminBookingsPage() {
 
   const bookings = await prisma.booking.findMany({
     orderBy: { createdAt: 'desc' },
-    take: 100,
+    take: 500,
     include: { bookingDates: { orderBy: { tourDate: 'asc' } } },
   })
 

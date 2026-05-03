@@ -16,6 +16,43 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
   const [loading, setLoading]   = useState(false)
   const [msg, setMsg]           = useState('')
 
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(initialBookings.length >= 500)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  async function loadMore() {
+    setLoadingMore(true)
+    try {
+      const nextPage = page + 1
+      const res = await fetch(`/api/admin/bookings?page=${nextPage}&limit=500`)
+      const data = await res.json()
+      if (data.bookings && data.bookings.length > 0) {
+        const newBookings = data.bookings.map((b: any) => ({
+          ...b,
+          amountTop: Number(b.amountTop),
+          discountTop: b.discountTop ? Number(b.discountTop) : null,
+          refundAmountTop: b.refundAmountTop ? Number(b.refundAmountTop) : null,
+        }))
+        setBookings(prev => {
+          // Prevent duplicates by checking IDs
+          const existingIds = new Set(prev.map(p => p.id))
+          const filteredNew = newBookings.filter((nb: any) => !existingIds.has(nb.id))
+          return [...prev, ...filteredNew]
+        })
+        setPage(nextPage)
+        if (data.bookings.length < 500) {
+          setHasMore(false)
+        }
+      } else {
+        setHasMore(false)
+      }
+    } catch (err) {
+      alert('Failed to load more bookings')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   // Cancel modal state
   const [cancelReason, setCancelReason] = useState('')
   const [refundMethod, setRefundMethod] = useState('none')
@@ -393,6 +430,14 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
           </tbody>
         </table>
       </div>
+
+      {hasMore && (
+        <div style={{ textAlign: 'center', marginTop: 24, marginBottom: 24 }}>
+          <button className="btn btn-outline" onClick={loadMore} disabled={loadingMore} style={{ minWidth: 200 }}>
+            {loadingMore ? 'Loading...' : 'Load More Bookings'}
+          </button>
+        </div>
+      )}
 
       {/* Detail modal */}
       {selected && !showCancel && (

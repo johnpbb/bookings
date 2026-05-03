@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validatePromo } from '@/lib/promo'
+import { checkCsrf } from '@/lib/csrf'
 
 export async function POST(req: NextRequest) {
+  const csrfError = checkCsrf(req)
+  if (csrfError) return csrfError
+
   try {
     const body = await req.json()
     const { code, tourId, dates } = body as {

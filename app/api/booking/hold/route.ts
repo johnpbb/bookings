@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { placeHold } from '@/lib/booking'
 import type { PlaceHoldArgs } from '@/lib/booking'
+import { checkCsrf } from '@/lib/csrf'
 
 export async function POST(req: NextRequest) {
+  const csrfError = checkCsrf(req)
+  if (csrfError) return csrfError
+
   try {
     const body = await req.json() as PlaceHoldArgs
 
