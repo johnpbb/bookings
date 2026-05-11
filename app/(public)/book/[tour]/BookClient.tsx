@@ -15,7 +15,9 @@ function calcPrice(tour: OnlineTour, numGuests: number): number {
   return (tour.pricePerPerson ?? 0) * numGuests
 }
 
-export default function BookClient({ tour }: { tour: OnlineTour }) {
+type Surcharge = { enabled: boolean; label: string; type: 'fixed' | 'percentage'; amount: number }
+
+export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surcharge?: Surcharge }) {
   const router = useRouter()
   const tourId = tour.id
 
@@ -25,12 +27,15 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
   const [maxSeats, setMaxSeats] = useState<number>(16)
 
   // Step 2: guest details
-  const [guestName, setGuestName]     = useState('')
-  const [guestEmail, setGuestEmail]   = useState('')
-  const [guestPhone, setGuestPhone]   = useState('')
-  const [numGuests, setNumGuests]     = useState(1)
-  const [specialReqs, setSpecialReqs] = useState('')
-  const [tcAccepted, setTcAccepted]   = useState(false)
+  const [guestName, setGuestName]         = useState('')
+  const [guestEmail, setGuestEmail]       = useState('')
+  const [guestPhone, setGuestPhone]       = useState('')
+  const [numGuests, setNumGuests]         = useState(1)
+  const [specialReqs, setSpecialReqs]     = useState('')
+  const [datesInTonga, setDatesInTonga]   = useState('')
+  const [whatsapp, setWhatsapp]           = useState('')
+  const [tcAccepted, setTcAccepted]       = useState(false)
+  const [activityAccepted, setActivityAccepted] = useState(false)
 
   // Step 3: review + promo
   const [promoInput, setPromoInput]   = useState('')
@@ -149,7 +154,13 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
       ? Math.round(baseAmount * (promoResult.discount ?? 0) / 100 * 100) / 100
       : (promoResult.discount ?? 0)
     : 0
-  const finalAmount = Math.max(0, baseAmount - promoDiscount)
+  const subtotal = Math.max(0, baseAmount - promoDiscount)
+  const surchargeAmount = surcharge?.enabled && surcharge.amount > 0
+    ? surcharge.type === 'percentage'
+      ? Math.round(subtotal * surcharge.amount / 100 * 100) / 100
+      : surcharge.amount
+    : 0
+  const finalAmount = subtotal + surchargeAmount
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -164,7 +175,8 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
     if (step === 1) {
       if (!guestName.trim()) { setError('Please enter your name.'); return }
       if (!guestEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { setError('Please enter a valid email address.'); return }
-      if (!tcAccepted) { setError('Please accept the cancellation policy to continue.'); return }
+      if (!tcAccepted) { setError('Please accept the Terms & Conditions to continue.'); return }
+      if (!activityAccepted) { setError('Please confirm you have read the activity requirements to continue.'); return }
     }
     setStep(s => s + 1)
   }
@@ -197,7 +209,12 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
         body: JSON.stringify({
           tourId, dates: selectedDates, numGuests,
           guestName: guestName.trim(), guestEmail: guestEmail.trim(),
-          guestPhone: guestPhone.trim(), specialRequests: specialReqs.trim(),
+          guestPhone: guestPhone.trim(),
+          specialRequests: [
+            specialReqs.trim(),
+            datesInTonga.trim() ? `Dates in Tonga: ${datesInTonga.trim()}` : '',
+            whatsapp ? `WhatsApp: ${whatsapp}` : '',
+          ].filter(Boolean).join('\n\n'),
           promoCode: promoResult?.valid ? promoInput.trim() : undefined,
         }),
       })
@@ -265,8 +282,11 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
       {/* Page title */}
       <div style={{ marginBottom: 32 }}>
         <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>← All tours</a>
+        {tour.image && (
+          <img src={tour.image} alt={tour.name} style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 12, marginTop: 12, display: 'block' }} />
+        )}
         <h1 style={{ marginTop: 8, fontSize: '1.8rem' }}>
-          {tour.emoji} {tour.name}
+          {!tour.image && `${tour.emoji} `}{tour.name}
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{tour.perNote}</p>
       </div>
@@ -355,19 +375,38 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
               </select>
             </div>
           </div>
-          <div className="form-group">
-            <label>Special Requests</label>
-            <textarea value={specialReqs} onChange={e => setSpecialReqs(e.target.value)}
-              placeholder="Dietary requirements, accessibility needs, etc." />
+          <div className="form-row">
+            <div className="form-group">
+              <label>Dates in Tonga</label>
+              <input value={datesInTonga} onChange={e => setDatesInTonga(e.target.value)}
+                placeholder="e.g. 1 Aug – 14 Aug"
+                title="Helps us offer alternate days in the event of a weather cancel" />
+            </div>
+            <div className="form-group">
+              <label>WhatsApp Number (if different)</label>
+              <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
+                placeholder="e.g. +64 21 234 5678 — leave blank if same as phone" />
+            </div>
           </div>
-          <div className="checkbox-group" style={{ marginBottom: 24 }}>
+          <div className="form-group">
+            <label>Guest Details & Special Requests</label>
+            <textarea value={specialReqs} onChange={e => setSpecialReqs(e.target.value)} rows={5}
+              placeholder="For each person booked please list: *Name, *Age, *Dietary Requirements, *Medical Conditions, *Snorkelling/Ocean Swimming Ability, *Any limitations relevant to the activity:" />
+          </div>
+          <div className="checkbox-group" style={{ marginBottom: 16 }}>
             <input type="checkbox" id="tc" checked={tcAccepted} onChange={e => setTcAccepted(e.target.checked)} />
             <label htmlFor="tc" style={{ fontSize: '0.88rem', fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}>
               I have read and accept Tahi Tonga's{' '}
               <a href="https://tahitonga.com/terms-conditions/" target="_blank" rel="noreferrer">
-                Cancellation Policy
+                Terms & Conditions
               </a>
               . I understand that bookings are subject to weather and whale watch conditions.
+            </label>
+          </div>
+          <div className="checkbox-group" style={{ marginBottom: 24 }}>
+            <input type="checkbox" id="activity" checked={activityAccepted} onChange={e => setActivityAccepted(e.target.checked)} />
+            <label htmlFor="activity" style={{ fontSize: '0.88rem', fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}>
+              I understand that this activity requires me / booked guests to swim wearing fins and a mask &amp; snorkel, in the open ocean, and to climb a boat ladder. I understand that limitations in my/booked guests' abilities may limit the experience and chances to swim.
             </label>
           </div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
@@ -432,6 +471,12 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
                 <span>−TOP$ {promoDiscount.toFixed(2)}</span>
               </div>
             )}
+            {surchargeAmount > 0 && (
+              <div className="price-row">
+                <span>{surcharge!.label}</span>
+                <span>TOP$ {surchargeAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="price-row total">
               <span>Total Due</span>
               <span>TOP$ {finalAmount.toFixed(2)}</span>
@@ -477,6 +522,12 @@ export default function BookClient({ tour }: { tour: OnlineTour }) {
               <span>Guests</span>
               <span>{numGuests}</span>
             </div>
+            {surchargeAmount > 0 && (
+              <div className="price-row">
+                <span>Incl. {surcharge!.label}</span>
+                <span>TOP$ {surchargeAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="price-row total">
               <span>Amount to Pay</span>
               <span>TOP$ {finalAmount.toFixed(2)}</span>

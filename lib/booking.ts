@@ -167,7 +167,20 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     promoCodeUsed = promo.code!
   }
 
-  const finalAmount = Math.max(0, baseAmount - promoDiscount)
+  const subtotal = Math.max(0, baseAmount - promoDiscount)
+  const surchargeSettings = await prisma.setting.findMany({
+    where: { key: { in: ['payment_surcharge_enabled', 'payment_surcharge_type', 'payment_surcharge_amount'] } }
+  })
+  const getSurcharge = (k: string) => surchargeSettings.find(s => s.key === k)?.value ?? ''
+  const surchargeEnabled = getSurcharge('payment_surcharge_enabled') === 'true'
+  const surchargeType = getSurcharge('payment_surcharge_type') || 'percentage'
+  const surchargeAmt = parseFloat(getSurcharge('payment_surcharge_amount')) || 0
+  const surchargeAmount = surchargeEnabled && surchargeAmt > 0
+    ? surchargeType === 'percentage'
+      ? Math.round(subtotal * surchargeAmt / 100 * 100) / 100
+      : surchargeAmt
+    : 0
+  const finalAmount = subtotal + surchargeAmount
   const holdMinutes = await getHoldMinutes()
   const holdExpiresAt = new Date(Date.now() + holdMinutes * 60 * 1000)
   const bookingRef = await generateRef()

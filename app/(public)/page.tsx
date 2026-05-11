@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getToursConfig } from '@/lib/tours'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Book a Tour — Tahi Tonga',
   description:
@@ -44,14 +46,17 @@ export default async function HomePage() {
             {BOOKING_TOURS.filter(t => t.isActive).map((tour) => (
               <div key={tour.id} className="tour-card">
                 <div className="tour-card__img-wrap">
-                  <div style={{
-                    width: '100%', height: '100%',
-                    background: `linear-gradient(135deg, var(--ocean-mid), var(--ocean-bright))`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '4rem',
-                  }}>
-                    {tour.emoji}
-                  </div>
+                  {tour.image
+                    ? <img src={tour.image} alt={tour.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{
+                        width: '100%', height: '100%',
+                        background: `linear-gradient(135deg, var(--ocean-mid), var(--ocean-bright))`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '4rem',
+                      }}>
+                        {tour.emoji}
+                      </div>
+                  }
                   {tour.badge && <span className="tour-card__badge">{tour.badge}</span>}
                 </div>
 
@@ -60,15 +65,7 @@ export default async function HomePage() {
                   <p style={{ fontSize: '0.82rem', color: 'var(--ocean-bright)', fontWeight: 600, marginBottom: 8 }}>
                     {tour.tagline}
                   </p>
-                  <p className="tour-card__desc">{tour.desc}</p>
-
-                  <ul style={{ marginBottom: 20, paddingLeft: 0, listStyle: 'none' }}>
-                    {tour.highlights.map((h) => (
-                      <li key={h} style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', padding: '2px 0' }}>
-                        ✓ {h}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="tour-card__desc" dangerouslySetInnerHTML={{ __html: tour.desc }} />
 
                   <div className="tour-card__price">{tour.priceLabel}</div>
                   <div className="tour-card__price-note">{tour.perNote}</div>
@@ -95,12 +92,15 @@ export default async function HomePage() {
                 background: 'white', borderRadius: 'var(--radius-lg)', padding: 28,
                 border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)',
               }}>
-                <div style={{ fontSize: '2rem', marginBottom: 12 }}>{tour.emoji}</div>
+                {tour.image
+                  ? <img src={tour.image} alt={tour.name} style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 8, marginBottom: 12, display: 'block' }} />
+                  : <div style={{ fontSize: '2rem', marginBottom: 12 }}>{tour.emoji}</div>
+                }
                 <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: 6 }}>{tour.name}</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--ocean-bright)', fontWeight: 600, marginBottom: 10 }}>
                   {tour.tagline}
                 </p>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 20 }}>{tour.desc}</p>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 20 }} dangerouslySetInnerHTML={{ __html: tour.desc }} />
                 <Link href={`/enquiry/${tour.id}`} className="btn btn-outline btn-full">
                   Make an Enquiry →
                 </Link>

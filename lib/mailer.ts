@@ -248,7 +248,7 @@ export async function sendRefundConfirmation({
           <h1 style="color:#fff;margin:0;font-size:20px">Refund Confirmation</h1>
         </div>
         <div style="padding:32px 24px;background:#fff">
-          <p>Kia orana ${booking.guestName},</p>
+          <p>Malo e lelei ${booking.guestName},</p>
           <p>We have processed a refund for your booking <strong>${booking.reference}</strong>.</p>
 
           <table style="width:100%;border-collapse:collapse;margin:24px 0">

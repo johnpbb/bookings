@@ -7,15 +7,15 @@ export interface OnlineTour {
   id: string
   name: string
   emoji: string
+  image?: string | null
   tagline: string
   desc: string
   priceLabel: string
   perNote: string
-  highlights: string[]
   badge: string | null
   type: 'book'
   isActive: boolean
-  
+
   // Specific internal configuration for logic
   dateCount: number
   pricePerPerson: number | null
@@ -27,6 +27,7 @@ export interface EnquiryTour {
   id: string
   name: string
   emoji: string
+  image?: string | null
   tagline: string
   desc: string
   type: 'enquiry'
@@ -42,7 +43,6 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     desc: 'A full day in the water with humpback whales. This is the experience that brings guests back year after year.',
     priceLabel: 'TOP$ 250',
     perNote: 'per person',
-    highlights: ['Full day on the water', 'In-water whale encounters', 'Professional guides', 'All snorkelling gear'],
     badge: 'Most popular',
     type: 'book',
     isActive: true,
@@ -57,7 +57,6 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     desc: 'Choose any 3 operating days across the season. More time in the water means a much higher chance of meaningful encounters.',
     priceLabel: 'TOP$ 1,850',
     perNote: 'per person (all 3 days)',
-    highlights: ['3 non-consecutive days', 'Priority seat selection', 'Promo codes accepted', 'Fringe season discount available'],
     badge: null,
     type: 'book',
     isActive: true,
@@ -72,7 +71,6 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     desc: 'Five full days on the water, on dates you choose. The best way to truly experience Tonga\'s humpback season.',
     priceLabel: 'TOP$ 1,100',
     perNote: 'per person (all 5 days)',
-    highlights: ['5 non-consecutive days', 'Maximum encounter time', 'Best value per day', 'Small group experience'],
     badge: 'Best value',
     type: 'book',
     isActive: true,
@@ -87,7 +85,6 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     desc: 'Discover a pristine outer reef island, snorkel crystal-clear waters, and enjoy a locally sourced light lunch. Volume discounts apply.',
     priceLabel: 'TOP$ 400',
     perNote: 'per person (5+ guests: TOP$ 320pp)',
-    highlights: ['5-hour excursion', 'Gear supplied', 'Light lunch included', 'Minimum 4 guests'],
     badge: null,
     type: 'book',
     isActive: true,

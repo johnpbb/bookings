@@ -41,6 +41,18 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
     setLoading(false)
   }
 
+  async function deleteDate(date: string) {
+    if (!confirm(`Delete ${date} from the operating calendar? This cannot be undone.`)) return
+    setLoading(true)
+    await fetch('/api/admin/operating-days', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_date', date }),
+    })
+    setDays(ds => ds.filter(d => new Date(d.operatingDate).toISOString().slice(0, 10) !== date))
+    setLoading(false)
+  }
+
   async function setCharterBlock(date: string, vessel: string, isFullyBlocked: boolean) {
     setLoading(true)
     await fetch('/api/admin/operating-days', {
@@ -98,7 +110,7 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
         <table className="data-table">
           <thead>
             <tr>
-              <th>Date</th><th>Total Seats</th><th>Held</th><th>Booked</th><th>Available</th><th>Charter</th><th>Status</th>
+              <th>Date</th><th>Total Seats</th><th>Held</th><th>Booked</th><th>Available</th><th>Charter</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -141,6 +153,16 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
                       ? <span className="status-badge pending">Charter</span>
                       : <span className="status-badge confirmed">Open</span>
                     }
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => deleteDate(dateStr)}
+                      disabled={loading}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem', padding: '2px 6px' }}
+                      title="Delete this date from the calendar"
+                    >
+                      ✕
+                    </button>
                   </td>
                 </tr>
               )

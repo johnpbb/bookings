@@ -60,9 +60,58 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
         </div>
 
         <Section title="Booking Settings" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
           <Field label="Hold Duration (minutes)" k="hold_minutes" type="number" placeholder="20" />
-          <Field label="Non-Refundable Fee (TOP)" k="non_refundable_fee" type="number" placeholder="0" />
+        </div>
+
+        <Section title="Payment Surcharge / Handling Fee" />
+        <div style={{ background: 'var(--foam)', borderRadius: 10, padding: '20px 24px', marginBottom: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, fontWeight: 600, fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={s.payment_surcharge_enabled === 'true'}
+              onChange={e => set('payment_surcharge_enabled', e.target.checked ? 'true' : 'false')}
+              style={{ width: 16, height: 16 }}
+            />
+            Enable
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <Field label="Fee Display Text" k="payment_surcharge_label" placeholder="Service Fee (4%)" />
+            <div className="form-group">
+              <label>Applicable Amount Type</label>
+              <select
+                value={s.payment_surcharge_type ?? 'percentage'}
+                onChange={e => set('payment_surcharge_type', e.target.value)}
+                style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }}
+              >
+                <option value="percentage">Percentage</option>
+                <option value="fixed">Fixed</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group" style={{ marginTop: 4 }}>
+            <label>
+              Amount{' '}
+              <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                {s.payment_surcharge_type === 'fixed' ? '— flat fee in TOP$' : '— percentage, e.g. 4 for 4%'}
+              </span>
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                {s.payment_surcharge_type === 'fixed' ? 'T$' : '%'}
+              </span>
+              <input
+                type="number"
+                value={s.payment_surcharge_amount ?? ''}
+                onChange={e => set('payment_surcharge_amount', e.target.value)}
+                placeholder="4"
+                style={{ width: 120, padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }}
+              />
+            </div>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
+              Shown to customers at checkout and included in the amount charged to their card.
+            </p>
+          </div>
         </div>
 
         <Section title="Operator" />
