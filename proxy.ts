@@ -6,11 +6,23 @@
  * and redirects unauthenticated requests to the configured signIn page.
  */
 import { withAuth } from 'next-auth/middleware'
-import type { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-// Export as a named `proxy` function (required by Next.js 16)
-export const proxy = withAuth as unknown as (req: NextRequest) => Response | Promise<Response>
+const authProxy = withAuth
+
+export function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  // Serve uploaded images via API route (Opalstack nginx doesn't serve public/)
+  if (pathname.startsWith('/uploads/')) {
+    const url = req.nextUrl.clone()
+    url.pathname = `/api${pathname}`
+    return NextResponse.rewrite(url)
+  }
+
+  return (authProxy as unknown as (req: NextRequest) => Response | Promise<Response>)(req)
+}
 
 export const config = {
-  matcher: ['/admin/((?!login).*)'],
+  matcher: ['/admin/((?!login).*)', '/uploads/:path*'],
 }
