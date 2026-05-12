@@ -58,6 +58,13 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
   const [refundMethod, setRefundMethod] = useState('none')
   const [showCancel, setShowCancel]     = useState(false)
 
+  // Edit state
+  const [editDetails, setEditDetails] = useState({ guestName: '', guestEmail: '', guestPhone: '' })
+  const [editDates, setEditDates]     = useState<string[]>([])
+  const [adminNotes, setAdminNotes]   = useState('')
+  const [editSection, setEditSection] = useState<'details' | 'dates' | null>(null)
+  const [editMsg, setEditMsg]         = useState('')
+
   // Search & Sort states
   const [search, setSearch] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'createdAt' | 'name', direction: 'asc' | 'desc' } | null>({ key: 'date', direction: 'asc' })
@@ -415,7 +422,7 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
                 </td>
                 <td>
                   <button className="btn btn-sm" style={{ background: 'var(--foam)', color: 'var(--ocean-deep)', border: '1px solid var(--border)' }}
-                    onClick={() => setSelected(b)}>
+                    onClick={() => { setSelected(b); setAdminNotes((b as any).adminNotes ?? ''); setEditSection(null); setEditMsg('') }}>
                     Details
                   </button>
                   {b.status === 'confirmed' && (
@@ -448,32 +455,175 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24,
         }}>
-          <div style={{ background: 'white', borderRadius: 20, padding: 40, maxWidth: 560, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h2 style={{ marginBottom: 20 }}>{selected.reference}</h2>
+          <div style={{ background: 'white', borderRadius: 20, padding: 40, maxWidth: 600, width: '100%', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <h2 style={{ margin: 0 }}>{selected.reference}</h2>
+              <span className={`status-badge ${selected.status}`}>{selected.status.replace('_', ' ')}</span>
+            </div>
+
+            {editMsg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{editMsg}</div>}
+
+            {/* Read-only booking info */}
             {[
-              ['Guest', selected.guestName],
-              ['Email', selected.guestEmail],
-              ['Phone', selected.guestPhone ?? '—'],
-              ['Tour', tourNames[selected.tourId]],
-              ['Dates', selected.bookingDates.map(bd => bd.tourDate.toString().slice(0,10)).join(', ')],
-              ['Guests', selected.numGuests],
+              ['Tour', tourNames[selected.tourId] ?? selected.tourId],
+              ['Guests', String(selected.numGuests)],
               ['Amount', `TOP$ ${Number(selected.amountTop).toFixed(2)}`],
               ['Promo', selected.promoCode ?? '—'],
               ['Discount', selected.discountTop ? `TOP$ ${Number(selected.discountTop).toFixed(2)}` : '—'],
-              ['Status', selected.status],
               ['eGate Order', selected.egateOrderId ?? '—'],
-              ['Special Requests', selected.specialRequests ?? '—'],
             ].map(([k, v]) => (
-              <div key={String(k)} style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '10px 0', fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)', width: 140, flexShrink: 0 }}>{k}</span>
-                <span>{String(v)}</span>
+              <div key={k} style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '8px 0', fontSize: '0.88rem' }}>
+                <span style={{ color: 'var(--text-muted)', width: 130, flexShrink: 0 }}>{k}</span>
+                <span>{v}</span>
               </div>
             ))}
-            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+
+            {/* Special Requests */}
+            {selected.specialRequests && (
+              <div style={{ borderBottom: '1px solid var(--border)', padding: '8px 0', fontSize: '0.88rem' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Special Requests</span>
+                <span style={{ whiteSpace: 'pre-wrap' }}>{selected.specialRequests}</span>
+              </div>
+            )}
+
+            {/* ── Guest Details ── */}
+            <div style={{ marginTop: 20, padding: '16px', background: 'var(--foam)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>Guest Details</span>
+                {editSection !== 'details' && (
+                  <button className="btn btn-sm btn-outline" style={{ fontSize: '0.78rem', padding: '3px 10px' }}
+                    onClick={() => {
+                      setEditDetails({ guestName: selected.guestName, guestEmail: selected.guestEmail, guestPhone: selected.guestPhone ?? '' })
+                      setEditSection('details')
+                      setEditMsg('')
+                    }}>
+                    Edit
+                  </button>
+                )}
+              </div>
+              {editSection === 'details' ? (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div><label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>Full Name</label>
+                    <input value={editDetails.guestName} onChange={e => setEditDetails(d => ({ ...d, guestName: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.9rem', marginTop: 2 }} /></div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div><label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>Email</label>
+                      <input value={editDetails.guestEmail} onChange={e => setEditDetails(d => ({ ...d, guestEmail: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.9rem', marginTop: 2 }} /></div>
+                    <div><label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>Phone</label>
+                      <input value={editDetails.guestPhone} onChange={e => setEditDetails(d => ({ ...d, guestPhone: e.target.value }))}
+                        style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.9rem', marginTop: 2 }} /></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button className="btn btn-primary btn-sm" disabled={loading} onClick={async () => {
+                      setLoading(true)
+                      const res = await fetch('/api/admin/bookings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: selected.id, action: 'edit_details', ...editDetails }) })
+                      const data = await res.json()
+                      if (data.success) {
+                        setSelected(data.booking)
+                        setBookings(bs => bs.map(b => b.id === selected.id ? data.booking : b))
+                        setEditMsg('✓ Guest details updated.')
+                      }
+                      setEditSection(null); setLoading(false)
+                    }}>{loading ? 'Saving...' : 'Save Details'}</button>
+                    <button className="btn btn-outline btn-sm" onClick={() => setEditSection(null)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.88rem', display: 'grid', gap: 4 }}>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Name: </span>{selected.guestName}</div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Email: </span>{selected.guestEmail}</div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Phone: </span>{selected.guestPhone ?? '—'}</div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Dates ── */}
+            <div style={{ marginTop: 12, padding: '16px', background: 'var(--foam)', borderRadius: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>Booking Dates</span>
+                {editSection !== 'dates' && (
+                  <button className="btn btn-sm btn-outline" style={{ fontSize: '0.78rem', padding: '3px 10px' }}
+                    onClick={() => {
+                      setEditDates(selected.bookingDates.map(bd => bd.tourDate.toString().slice(0, 10)))
+                      setEditSection('dates')
+                      setEditMsg('')
+                    }}>
+                    Change Dates
+                  </button>
+                )}
+              </div>
+              {editSection === 'dates' ? (
+                <div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 10 }}>
+                    Seats on the old dates will be released and reserved on the new dates automatically.
+                  </p>
+                  {editDates.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <input type="date" value={d} onChange={e => setEditDates(ds => ds.map((x, j) => j === i ? e.target.value : x))}
+                        style={{ flex: 1, padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.9rem' }} />
+                      {editDates.length > 1 && (
+                        <button className="btn btn-sm btn-coral" style={{ padding: '0 10px' }}
+                          onClick={() => setEditDates(ds => ds.filter((_, j) => j !== i))}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                  <button className="btn btn-outline btn-sm" style={{ marginBottom: 12 }}
+                    onClick={() => setEditDates(ds => [...ds, ''])}>+ Add Date</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary btn-sm" disabled={loading || editDates.some(d => !d)} onClick={async () => {
+                      setLoading(true)
+                      const res = await fetch('/api/admin/bookings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: selected.id, action: 'change_dates', newDates: editDates }) })
+                      const data = await res.json()
+                      if (data.success) {
+                        setSelected(data.booking)
+                        setBookings(bs => bs.map(b => b.id === selected.id ? data.booking : b))
+                        setEditMsg('✓ Dates updated.')
+                      }
+                      setEditSection(null); setLoading(false)
+                    }}>{loading ? 'Saving...' : 'Save Dates'}</button>
+                    <button className="btn btn-outline btn-sm" onClick={() => setEditSection(null)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.88rem' }}>
+                  {selected.bookingDates.map(bd => (
+                    <div key={bd.id}>{new Date(bd.tourDate).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Admin Notes ── */}
+            <div style={{ marginTop: 12, padding: '16px', background: 'var(--foam)', borderRadius: 10 }}>
+              <label style={{ fontWeight: 600, fontSize: '0.88rem', display: 'block', marginBottom: 8 }}>Admin Notes</label>
+              <textarea
+                value={adminNotes}
+                onChange={e => setAdminNotes(e.target.value)}
+                rows={3} placeholder="Internal notes — not visible to the guest..."
+                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.88rem', resize: 'vertical' }}
+              />
+              <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} disabled={loading} onClick={async () => {
+                setLoading(true)
+                const res = await fetch('/api/admin/bookings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: selected.id, action: 'update_notes', adminNotes }) })
+                const data = await res.json()
+                if (data.success) {
+                  setSelected(data.booking)
+                  setBookings(bs => bs.map(b => b.id === selected.id ? data.booking : b))
+                  setEditMsg('✓ Notes saved.')
+                }
+                setLoading(false)
+              }}>{loading ? 'Saving...' : 'Save Notes'}</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
               {selected.status === 'confirmed' && (
                 <button className="btn btn-coral" onClick={() => setShowCancel(true)}>Cancel Booking</button>
               )}
-              <button className="btn btn-outline" onClick={() => setSelected(null)}>Close</button>
+              <button className="btn btn-outline" onClick={() => { setSelected(null); setEditSection(null); setEditMsg('') }}>Close</button>
             </div>
           </div>
         </div>

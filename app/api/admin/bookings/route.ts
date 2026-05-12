@@ -63,6 +63,83 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(result)
   }
 
+  if (action === 'edit_details') {
+    const { guestName, guestEmail, guestPhone } = body
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: {
+        guestName: guestName?.trim(),
+        guestEmail: guestEmail?.toLowerCase().trim(),
+        guestPhone: guestPhone?.trim() ?? null,
+      },
+      include: { bookingDates: { orderBy: { tourDate: 'asc' } } },
+    })
+    return NextResponse.json({ success: true, booking: updated })
+  }
+
+  if (action === 'update_notes') {
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: { adminNotes: body.adminNotes?.trim() ?? null },
+      include: { bookingDates: { orderBy: { tourDate: 'asc' } } },
+    })
+    return NextResponse.json({ success: true, booking: updated })
+  }
+
+  if (action === 'change_dates') {
+    const { newDates } = body as { newDates: string[] }
+    if (!newDates || newDates.length === 0) {
+      return NextResponse.json({ error: 'No dates provided.' }, { status: 400 })
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: { bookingDates: true },
+    })
+    if (!booking) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
+
+    await prisma.$transaction(async (tx) => {
+      // Release seats on old dates
+      for (const bd of booking.bookingDates) {
+        await tx.$executeRaw`
+          UPDATE tt_operating_days
+          SET seats_booked = GREATEST(0, seats_booked - ${booking.numGuests})
+          WHERE id = ${bd.operatingDayId}
+        `
+      }
+      // Delete old booking date records
+      await tx.bookingDate.deleteMany({ where: { bookingId: id } })
+
+      // Create new booking date records and reserve seats
+      for (const date of newDates) {
+        const opDay = await tx.operatingDay.upsert({
+          where: { operatingDate: new Date(date) },
+          update: {},
+          create: { operatingDate: new Date(date), totalSeats: 16, seatsBooked: 0 },
+        })
+        await tx.bookingDate.create({
+          data: {
+            bookingId: id,
+            operatingDayId: opDay.id,
+            tourDate: new Date(date),
+            seatsReserved: booking.numGuests,
+          },
+        })
+        await tx.$executeRaw`
+          UPDATE tt_operating_days
+          SET seats_booked = seats_booked + ${booking.numGuests}
+          WHERE id = ${opDay.id}
+        `
+      }
+    })
+
+    const updated = await prisma.booking.findUnique({
+      where: { id },
+      include: { bookingDates: { orderBy: { tourDate: 'asc' } } },
+    })
+    return NextResponse.json({ success: true, booking: updated })
+  }
+
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
 }
 

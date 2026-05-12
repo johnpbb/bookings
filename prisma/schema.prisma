@@ -42,6 +42,7 @@ model Booking {
   refundAmountTop Decimal?      @map("refund_amount_top") @db.Decimal(10, 2)
   refundedAt      DateTime?     @map("refunded_at")
   cancelReason    String?       @map("cancel_reason")
+  adminNotes      String?       @map("admin_notes")
   holdExpiresAt   DateTime?     @map("hold_expires_at")
   confirmedAt     DateTime?     @map("confirmed_at")
   ipAddress       String?       @map("ip_address") @db.VarChar(45)
