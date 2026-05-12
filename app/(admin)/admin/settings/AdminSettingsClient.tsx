@@ -4,6 +4,35 @@ import { useState } from 'react'
 
 type Settings = Record<string, string>
 
+function Section({ title }: { title: string }) {
+  return (
+    <h3 style={{ marginTop: 32, marginBottom: 16, paddingBottom: 8, borderBottom: '2px solid var(--border)', color: 'var(--ocean-deep)' }}>
+      {title}
+    </h3>
+  )
+}
+
+function Field({ label, type = 'text', placeholder = '', value, onChange }: {
+  label: string
+  type?: string
+  placeholder?: string
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="form-group">
+      <label>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }}
+      />
+    </div>
+  )
+}
+
 export default function AdminSettingsClient({ initialSettings }: { initialSettings: Settings }) {
   const [s, setS] = useState(initialSettings)
   const [loading, setLoading] = useState(false)
@@ -20,18 +49,6 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
     setLoading(false)
   }
 
-  const Field = ({ label, k, type = 'text', placeholder = '' }: { label: string; k: string; type?: string; placeholder?: string }) => (
-    <div className="form-group">
-      <label>{label}</label>
-      <input type={type} value={s[k] ?? ''} onChange={e => set(k, e.target.value)} placeholder={placeholder}
-        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }} />
-    </div>
-  )
-
-  const Section = ({ title }: { title: string }) => (
-    <h3 style={{ marginTop: 32, marginBottom: 16, paddingBottom: 8, borderBottom: '2px solid var(--border)', color: 'var(--ocean-deep)' }}>{title}</h3>
-  )
-
   return (
     <>
       <div className="admin-page-header"><h1>Settings</h1></div>
@@ -41,7 +58,7 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
       <div style={{ maxWidth: 700 }}>
         <Section title="ANZ eGate Payment Gateway" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <Field label="Merchant ID" k="egate_merchant_id" placeholder="Your ANZ Merchant ID" />
+          <Field label="Merchant ID" value={s.egate_merchant_id ?? ''} onChange={v => set('egate_merchant_id', v)} placeholder="Your ANZ Merchant ID" />
           <div className="form-group">
             <label>Shared Secret</label>
             <input type="password" value={s.egate_shared_secret ?? ''} onChange={e => set('egate_shared_secret', e.target.value)}
@@ -49,7 +66,7 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
               style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }} />
           </div>
         </div>
-        <Field label="Production Endpoint URL" k="egate_endpoint" />
+        <Field label="Production Endpoint URL" value={s.egate_endpoint ?? ''} onChange={v => set('egate_endpoint', v)} />
         <div className="form-group">
           <label>Mode</label>
           <select value={s.egate_sandbox ?? 'true'} onChange={e => set('egate_sandbox', e.target.value)}
@@ -61,7 +78,7 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
 
         <Section title="Booking Settings" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-          <Field label="Hold Duration (minutes)" k="hold_minutes" type="number" placeholder="20" />
+          <Field label="Hold Duration (minutes)" type="number" value={s.hold_minutes ?? ''} onChange={v => set('hold_minutes', v)} placeholder="20" />
         </div>
 
         <Section title="Payment Surcharge / Handling Fee" />
@@ -76,7 +93,7 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
             Enable
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <Field label="Fee Display Text" k="payment_surcharge_label" placeholder="Service Fee (4%)" />
+            <Field label="Fee Display Text" value={s.payment_surcharge_label ?? ''} onChange={v => set('payment_surcharge_label', v)} placeholder="Service Fee (4%)" />
             <div className="form-group">
               <label>Applicable Amount Type</label>
               <select
@@ -115,12 +132,12 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
         </div>
 
         <Section title="Operator" />
-        <Field label="Operator Email (receives all alerts)" k="operator_email" type="email" placeholder="info@tahitonga.com" />
+        <Field label="Operator Email (receives all alerts)" type="email" value={s.operator_email ?? ''} onChange={v => set('operator_email', v)} placeholder="info@tahitonga.com" />
 
         <Section title="Whale Season" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <Field label="Season Start (MM-DD)" k="whale_season_start" placeholder="07-01" />
-          <Field label="Season End (MM-DD)" k="whale_season_end" placeholder="10-31" />
+          <Field label="Season Start (MM-DD)" value={s.whale_season_start ?? ''} onChange={v => set('whale_season_start', v)} placeholder="07-01" />
+          <Field label="Season End (MM-DD)" value={s.whale_season_end ?? ''} onChange={v => set('whale_season_end', v)} placeholder="10-31" />
         </div>
         <div className="form-group">
           <label>Excluded Operating Dates (comma-separated YYYY-MM-DD)</label>
