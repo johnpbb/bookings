@@ -1,9 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Booking, BookingDate } from '@prisma/client'
+import type { OnlineTour } from '@/lib/tours'
 
 type BookingWithDates = Booking & { bookingDates: BookingDate[] }
+type Surcharge = { enabled: boolean; type: 'fixed' | 'percentage'; amount: number }
+
+function calcTourPrice(tour: OnlineTour, numGuests: number): number {
+  if (tour.id === 'island_reef') {
+    const ppp = numGuests >= 5 ? (tour.reefPriceLarge ?? 320) : (tour.reefPriceSmall ?? 400)
+    return ppp * numGuests
+  }
+  return (tour.pricePerPerson ?? 0) * numGuests
+}
+
+function applyTourSurcharge(subtotal: number, surcharge: Surcharge): number {
+  if (!surcharge.enabled || surcharge.amount <= 0) return subtotal
+  const fee = surcharge.type === 'percentage'
+    ? Math.round(subtotal * surcharge.amount / 100 * 100) / 100
+    : surcharge.amount
+  return subtotal + fee
+}
 
 const VESSELS = ['mv_ika_nui', 'mv_huelo', 'hele_kosi']
 const STATUSES = ['', 'pending_payment', 'confirmed', 'cancelled', 'refunded']
@@ -16,7 +34,17 @@ function toInputDate(d: unknown): string {
   return match ? match[1] : ''
 }
 
-export default function AdminBookingsClient({ initialBookings, tourNames }: { initialBookings: BookingWithDates[], tourNames: Record<string, string> }) {
+export default function AdminBookingsClient({
+  initialBookings,
+  tourNames,
+  onlineTours = [],
+  surcharge = { enabled: false, type: 'percentage', amount: 0 },
+}: {
+  initialBookings: BookingWithDates[]
+  tourNames: Record<string, string>
+  onlineTours?: OnlineTour[]
+  surcharge?: Surcharge
+}) {
   const [bookings, setBookings] = useState(initialBookings)
   const [filter, setFilter]     = useState({ status: '', tour: '' })
   const [selected, setSelected] = useState<BookingWithDates | null>(null)
@@ -104,6 +132,20 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
     assignedVessel: '',
     specialRequests: ''
   })
+  const [amountAutoCalc, setAmountAutoCalc] = useState('')
+
+  useEffect(() => {
+    if (!manualForm.tourId) { setAmountAutoCalc(''); return }
+    const tour = onlineTours.find(t => t.id === manualForm.tourId)
+    if (!tour) { setAmountAutoCalc(''); return }
+    const subtotal = calcTourPrice(tour, manualForm.numGuests)
+    const total = applyTourSurcharge(subtotal, surcharge)
+    const label = surcharge.enabled && surcharge.amount > 0
+      ? `TOP$ ${subtotal.toFixed(2)} + ${surcharge.type === 'percentage' ? `${surcharge.amount}%` : `TOP$ ${surcharge.amount}`} surcharge = TOP$ ${total.toFixed(2)}`
+      : `TOP$ ${total.toFixed(2)}`
+    setAmountAutoCalc(label)
+    setManualForm(f => ({ ...f, amountTop: total.toFixed(2) }))
+  }, [manualForm.tourId, manualForm.numGuests])
 
   const filtered = bookings.filter(b => {
     if (filter.status && b.status !== filter.status) return false
@@ -363,7 +405,7 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
             <input type="file" accept=".csv" onChange={importCsv} style={{ display: 'none' }} />
           </label>
           <button className="btn btn-outline btn-sm" onClick={exportCsv}>Export CSV</button>
-          <button className="btn btn-sm" style={{ background: 'var(--ocean-deep)', color: 'white' }} onClick={() => setShowAddManual(true)}>
+          <button className="btn btn-sm" style={{ background: 'var(--ocean-deep)', color: 'white' }} onClick={() => { setShowAddManual(true); setAmountAutoCalc('') }}>
             + Create Manual Booking
           </button>
         </div>
@@ -785,9 +827,14 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
                     Amount (TOP$)
                   </label>
-                  <input type="text" placeholder="e.g. 1850" value={manualForm.amountTop} 
-                    onChange={e => setManualForm(f => ({ ...f, amountTop: e.target.value }))}
+                  <input type="text" placeholder="e.g. 1850" value={manualForm.amountTop}
+                    onChange={e => { setManualForm(f => ({ ...f, amountTop: e.target.value })); setAmountAutoCalc('') }}
                     style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }} />
+                  {amountAutoCalc && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--ocean-bright)', marginTop: 4 }}>
+                      Auto-calculated: {amountAutoCalc}
+                    </p>
+                  )}
                 </div>
               </div>
 

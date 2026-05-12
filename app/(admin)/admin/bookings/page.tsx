@@ -27,5 +27,22 @@ export default async function AdminBookingsPage() {
     [...online, ...enquiry].map(t => [t.id, t.name])
   )
 
-  return <AdminBookingsClient initialBookings={serializedBookings} tourNames={tourMap} />
+  const surchargeSettings = await prisma.setting.findMany({
+    where: { key: { in: ['payment_surcharge_enabled', 'payment_surcharge_type', 'payment_surcharge_amount'] } }
+  })
+  const getSurcharge = (k: string) => surchargeSettings.find(s => s.key === k)?.value ?? ''
+  const surcharge = {
+    enabled: getSurcharge('payment_surcharge_enabled') === 'true',
+    type: (getSurcharge('payment_surcharge_type') || 'percentage') as 'fixed' | 'percentage',
+    amount: parseFloat(getSurcharge('payment_surcharge_amount')) || 0,
+  }
+
+  return (
+    <AdminBookingsClient
+      initialBookings={serializedBookings}
+      tourNames={tourMap}
+      onlineTours={online}
+      surcharge={surcharge}
+    />
+  )
 }
