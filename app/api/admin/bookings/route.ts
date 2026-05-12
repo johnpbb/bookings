@@ -45,6 +45,7 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin()
   if ('error' in auth) return auth.error
 
+  try {
   const body = await req.json()
   const { id, action, assignedVessel, cancelReason, refundMethod } = body
 
@@ -141,6 +142,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
+  } catch (err: any) {
+    console.error('[PATCH /api/admin/bookings]', err)
+    return NextResponse.json({ error: err.message || 'Internal server error.' }, { status: 500 })
+  }
 }
 
 // POST /api/admin/bookings — Create manual offline booking

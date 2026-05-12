@@ -72,6 +72,21 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
   const [editSection, setEditSection] = useState<'details' | 'dates' | null>(null)
   const [editMsg, setEditMsg]         = useState('')
 
+  async function patchBooking(payload: Record<string, unknown>) {
+    const res = await fetch('/api/admin/bookings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const text = await res.text()
+    try {
+      return JSON.parse(text)
+    } catch {
+      console.error('Non-JSON response:', text)
+      return { error: `Server error (${res.status})` }
+    }
+  }
+
   // Search & Sort states
   const [search, setSearch] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'createdAt' | 'name', direction: 'asc' | 'desc' } | null>({ key: 'date', direction: 'asc' })
@@ -524,13 +539,13 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                     <button className="btn btn-primary btn-sm" disabled={loading} onClick={async () => {
                       setLoading(true)
-                      const res = await fetch('/api/admin/bookings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: selected.id, action: 'edit_details', ...editDetails }) })
-                      const data = await res.json()
+                      const data = await patchBooking({ id: selected.id, action: 'edit_details', ...editDetails })
                       if (data.success) {
                         setSelected(data.booking)
                         setBookings(bs => bs.map(b => b.id === selected.id ? data.booking : b))
                         setEditMsg('✓ Guest details updated.')
+                      } else {
+                        setEditMsg(`Error: ${data.error}`)
                       }
                       setEditSection(null); setLoading(false)
                     }}>{loading ? 'Saving...' : 'Save Details'}</button>
@@ -581,13 +596,13 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button className="btn btn-primary btn-sm" disabled={loading || editDates.some(d => !d)} onClick={async () => {
                       setLoading(true)
-                      const res = await fetch('/api/admin/bookings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: selected.id, action: 'change_dates', newDates: editDates }) })
-                      const data = await res.json()
+                      const data = await patchBooking({ id: selected.id, action: 'change_dates', newDates: editDates })
                       if (data.success) {
                         setSelected(data.booking)
                         setBookings(bs => bs.map(b => b.id === selected.id ? data.booking : b))
                         setEditMsg('✓ Dates updated.')
+                      } else {
+                        setEditMsg(`Error: ${data.error}`)
                       }
                       setEditSection(null); setLoading(false)
                     }}>{loading ? 'Saving...' : 'Save Dates'}</button>
@@ -614,13 +629,13 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
               />
               <button className="btn btn-outline btn-sm" style={{ marginTop: 8 }} disabled={loading} onClick={async () => {
                 setLoading(true)
-                const res = await fetch('/api/admin/bookings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ id: selected.id, action: 'update_notes', adminNotes }) })
-                const data = await res.json()
+                const data = await patchBooking({ id: selected.id, action: 'update_notes', adminNotes })
                 if (data.success) {
                   setSelected(data.booking)
                   setBookings(bs => bs.map(b => b.id === selected.id ? data.booking : b))
                   setEditMsg('✓ Notes saved.')
+                } else {
+                  setEditMsg(`Error: ${data.error}`)
                 }
                 setLoading(false)
               }}>{loading ? 'Saving...' : 'Save Notes'}</button>
