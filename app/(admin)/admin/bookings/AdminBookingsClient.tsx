@@ -9,6 +9,13 @@ const VESSELS = ['mv_ika_nui', 'mv_huelo', 'hele_kosi']
 const STATUSES = ['', 'pending_payment', 'confirmed', 'cancelled', 'refunded']
 const REFUND_METHODS = ['egate', 'manual', 'none']
 
+// Safely extract YYYY-MM-DD from any date representation
+function toInputDate(d: unknown): string {
+  if (!d) return ''
+  const match = String(d).match(/(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : ''
+}
+
 export default function AdminBookingsClient({ initialBookings, tourNames }: { initialBookings: BookingWithDates[], tourNames: Record<string, string> }) {
   const [bookings, setBookings] = useState(initialBookings)
   const [filter, setFilter]     = useState({ status: '', tour: '' })
@@ -202,7 +209,7 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
       ...filtered.map(b => [
         b.reference, b.guestName, b.guestEmail,
         tourNames[b.tourId] ?? b.tourId,
-        b.bookingDates.map(bd => bd.tourDate.toString().slice(0,10)).join('; '),
+        b.bookingDates.map(bd => toInputDate(bd.tourDate)).join('; '),
         b.numGuests, Number(b.amountTop).toFixed(2),
         b.status, b.assignedVessel ?? '',
       ])
@@ -408,7 +415,7 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{b.guestEmail}</div>
                 </td>
                 <td>{tourNames[b.tourId] ?? b.tourId}</td>
-                <td style={{ fontSize: '0.82rem' }}>{b.bookingDates.map(bd => bd.tourDate.toString().slice(0,10)).join(', ')}</td>
+                <td style={{ fontSize: '0.82rem' }}>{b.bookingDates.map(bd => toInputDate(bd.tourDate)).join(', ')}</td>
                 <td>{b.numGuests}</td>
                 <td>TOP$ {Number(b.amountTop).toFixed(0)}</td>
                 <td><span className={`status-badge ${b.status}`}>{b.status.replace('_', ' ')}</span></td>
@@ -546,7 +553,7 @@ export default function AdminBookingsClient({ initialBookings, tourNames }: { in
                 {editSection !== 'dates' && (
                   <button className="btn btn-sm btn-outline" style={{ fontSize: '0.78rem', padding: '3px 10px' }}
                     onClick={() => {
-                      setEditDates(selected.bookingDates.map(bd => bd.tourDate.toString().slice(0, 10)))
+                      setEditDates(selected.bookingDates.map(bd => toInputDate(bd.tourDate)))
                       setEditSection('dates')
                       setEditMsg('')
                     }}>
