@@ -94,7 +94,7 @@ export async function sendBookingConfirmation({
 
         <p style="margin-top:24px">Our <a href="https://tahitonga.com/terms-conditions/" style="color:#0a4f6e">cancellation policy</a> applies to this booking.</p>
         <p>Questions? Reply to this email or contact us at info@tahitonga.com</p>
-        <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga Whale Watching · Neiafu, Vavaʻu, Tonga</p>
+        <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga Whale Watching · Nukuʻalofa, Tonga</p>
       </div>
     </div>
   `
@@ -259,7 +259,7 @@ export async function sendRefundConfirmation({
 
           <p>${method === 'egate' ? 'Your refund has been processed and should appear in your account within 3–5 business days.' : 'Your refund will be processed manually by our team within 3–5 business days.'}</p>
           <p>Our full <a href="https://tahitonga.com/terms-conditions/" style="color:#0a4f6e">cancellation policy</a> applies. Questions? Contact us at info@tahitonga.com</p>
-          <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga Whale Watching · Neiafu, Vavaʻu, Tonga</p>
+          <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga Whale Watching · Nukuʻalofa, Tonga</p>
         </div>
       </div>
     `,

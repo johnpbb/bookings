@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'Book a Tour — Tahi Tonga',
   description:
-    'Choose from Tahi Tonga\'s whale watching, outer reef, and island charter experiences in Vavaʻu, Tonga. Real-time online booking available.',
+    'Choose from Tahi Tonga\'s whale watching, outer reef, and island charter experiences in Nukuʻalofa, Tonga. Real-time online booking available.',
 }
 
 export default async function HomePage() {

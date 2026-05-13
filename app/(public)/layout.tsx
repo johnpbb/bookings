@@ -4,7 +4,7 @@ import '../globals.css'
 export const metadata: Metadata = {
   title: 'Tahi Tonga — Book Your Whale Watch & Island Experience',
   description:
-    'Book whale watching, outer reef excursions, and island tours with Tahi Tonga in Vavaʻu, Tonga. Real-time availability, secure online payments in TOP.',
+    'Book whale watching, outer reef excursions, and island tours with Tahi Tonga in Nukuʻalofa, Tonga. Real-time availability, secure online payments in TOP.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://book.tahitonga.com'),
   openGraph: {
     siteName: 'Tahi Tonga Bookings',
