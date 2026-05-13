@@ -137,7 +137,7 @@ export async function sendOperatorBookingAlert({
           <tr><td style="padding:6px 0;color:#666">Special Requests</td><td>${booking.specialRequests ?? '—'}</td></tr>
         </table>
         <p style="margin-top:24px">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/bookings/${booking.id}" style="background:#0a4f6e;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px">
+          <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/bookings?search=${booking.reference}" style="background:#0a4f6e;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px">
             View in Admin Panel
           </a>
         </p>

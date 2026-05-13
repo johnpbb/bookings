@@ -5,9 +5,10 @@ import { prisma } from '@/lib/db'
 import AdminBookingsClient from './AdminBookingsClient'
 import { getToursConfig } from '@/lib/tours'
 
-export default async function AdminBookingsPage() {
+export default async function AdminBookingsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const session = await getServerSession(authOptions)
   if (!session) redirect('/admin/login')
+  const { search: initialSearch } = await searchParams
 
   const bookings = await prisma.booking.findMany({
     orderBy: { createdAt: 'desc' },
@@ -43,6 +44,7 @@ export default async function AdminBookingsPage() {
       tourNames={tourMap}
       onlineTours={online}
       surcharge={surcharge}
+      initialSearch={initialSearch ?? ''}
     />
   )
 }

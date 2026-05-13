@@ -39,11 +39,13 @@ export default function AdminBookingsClient({
   tourNames,
   onlineTours = [],
   surcharge = { enabled: false, type: 'percentage', amount: 0 },
+  initialSearch = '',
 }: {
   initialBookings: BookingWithDates[]
   tourNames: Record<string, string>
   onlineTours?: OnlineTour[]
   surcharge?: Surcharge
+  initialSearch?: string
 }) {
   const [bookings, setBookings] = useState(initialBookings)
   const [filter, setFilter]     = useState({ status: '', tour: '' })
@@ -116,7 +118,7 @@ export default function AdminBookingsClient({
   }
 
   // Search & Sort states
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'createdAt' | 'name', direction: 'asc' | 'desc' } | null>({ key: 'date', direction: 'asc' })
 
   // Manual booking modal state
