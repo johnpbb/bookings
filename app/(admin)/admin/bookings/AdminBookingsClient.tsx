@@ -472,7 +472,15 @@ export default function AdminBookingsClient({
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{b.guestEmail}</div>
                 </td>
                 <td>{tourNames[b.tourId] ?? b.tourId}</td>
-                <td style={{ fontSize: '0.82rem' }}>{b.bookingDates.map(bd => toInputDate(bd.tourDate)).join(', ')}</td>
+                <td style={{ fontSize: '0.82rem' }}>
+                  {b.bookingDates.length > 0
+                    ? b.bookingDates.map(bd => {
+                        const d = toInputDate(bd.tourDate)
+                        return d ? new Date(d).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+                      }).join(', ')
+                    : <span style={{ color: 'var(--text-muted)' }}>—</span>
+                  }
+                </td>
                 <td>{b.numGuests}</td>
                 <td>TOP$ {Number(b.amountTop).toFixed(0)}</td>
                 <td><span className={`status-badge ${b.status}`}>{b.status.replace('_', ' ')}</span></td>
