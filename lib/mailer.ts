@@ -70,7 +70,7 @@ export async function sendBookingConfirmation({
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e">
       <div style="background:#0a4f6e;padding:32px 24px;text-align:center">
-        <img src="${process.env.NEXT_PUBLIC_APP_URL}/logo.png" alt="Tahi Tonga" height="48" style="margin-bottom:8px"/>
+        <div style="color:#fff;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;opacity:0.8">Tahi Tonga</div>
         <h1 style="color:#fff;margin:0;font-size:22px">Booking Confirmed! 🐋</h1>
       </div>
       <div style="padding:32px 24px;background:#fff">
