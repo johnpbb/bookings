@@ -96,6 +96,11 @@ export default function AdminBookingsClient({
   const [refundMethod, setRefundMethod] = useState('none')
   const [showCancel, setShowCancel]     = useState(false)
 
+  // Delete modal state
+  const [showDelete, setShowDelete]         = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleteError, setDeleteError]       = useState('')
+
   // Edit state
   const [editDetails, setEditDetails] = useState({ guestName: '', guestEmail: '', guestPhone: '' })
   const [editDates, setEditDates]     = useState<string[]>([])
@@ -699,6 +704,10 @@ export default function AdminBookingsClient({
                 <button className="btn btn-coral" onClick={() => setShowCancel(true)}>Cancel Booking</button>
               )}
               <button className="btn btn-outline" onClick={() => { setSelected(null); setEditSection(null); setEditMsg('') }}>Close</button>
+              <button className="btn btn-sm" style={{ marginLeft: 'auto', background: 'transparent', color: 'var(--error, #c0392b)', border: '1px solid var(--error, #c0392b)', borderRadius: 8, padding: '6px 14px', fontSize: '0.82rem', cursor: 'pointer' }}
+                onClick={() => { setDeleteConfirmText(''); setDeleteError(''); setShowDelete(true) }}>
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -748,6 +757,58 @@ export default function AdminBookingsClient({
           </div>
         </div>
       )}
+      {/* Delete confirmation modal */}
+      {showDelete && selected && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 24,
+        }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: 40, maxWidth: 440, width: '100%' }}>
+            <h2 style={{ marginBottom: 8, color: 'var(--error, #c0392b)' }}>Delete Booking</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 8, fontSize: '0.9rem' }}>
+              <strong>{selected.reference}</strong> — {selected.guestName}
+            </p>
+            <p style={{ color: 'var(--error, #c0392b)', fontSize: '0.88rem', marginBottom: 24 }}>
+              This permanently removes the booking and cannot be undone.
+            </p>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              Type <strong>DELETE</strong> to confirm
+            </label>
+            <input
+              value={deleteConfirmText}
+              onChange={e => { setDeleteConfirmText(e.target.value); setDeleteError('') }}
+              placeholder="DELETE"
+              style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem', marginBottom: 8 }}
+            />
+            {deleteError && <p style={{ color: 'var(--error, #c0392b)', fontSize: '0.85rem', marginBottom: 8 }}>{deleteError}</p>}
+            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+              <button
+                className="btn"
+                style={{ background: 'var(--error, #c0392b)', color: 'white', border: 'none', borderRadius: 10, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}
+                disabled={loading}
+                onClick={async () => {
+                  if (deleteConfirmText !== 'DELETE') { setDeleteError('Type DELETE in capitals to confirm.'); return }
+                  setLoading(true)
+                  const res = await fetch(`/api/admin/bookings?id=${selected.id}`, { method: 'DELETE' })
+                  const data = await res.json()
+                  if (data.success) {
+                    setBookings(bs => bs.filter(b => b.id !== selected.id))
+                    setShowDelete(false)
+                    setSelected(null)
+                  } else {
+                    setDeleteError(data.error ?? 'Delete failed.')
+                  }
+                  setLoading(false)
+                }}
+              >
+                {loading ? 'Deleting…' : 'Permanently Delete'}
+              </button>
+              <button className="btn btn-outline" onClick={() => setShowDelete(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Manual Booking modal */}
       {showAddManual && (
         <div style={{

@@ -198,3 +198,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message || 'Internal server error.' }, { status: 500 })
   }
 }
+
+// DELETE /api/admin/bookings?id=123 — permanently remove a booking
+export async function DELETE(req: NextRequest) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth.error
+
+  const id = parseInt(new URL(req.url).searchParams.get('id') ?? '', 10)
+  if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 })
+
+  try {
+    await prisma.bookingDate.deleteMany({ where: { bookingId: id } })
+    await prisma.booking.delete({ where: { id } })
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error('[DELETE /api/admin/bookings]', err)
+    return NextResponse.json({ error: err.message || 'Internal server error.' }, { status: 500 })
+  }
+}
