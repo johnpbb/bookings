@@ -27,9 +27,10 @@ const VESSELS = ['mv_ika_nui', 'mv_huelo', 'hele_kosi']
 const STATUSES = ['', 'pending_payment', 'confirmed', 'cancelled', 'refunded']
 const REFUND_METHODS = ['egate', 'manual', 'none']
 
-// Safely extract YYYY-MM-DD from any date representation
+// Safely extract YYYY-MM-DD from any date representation (Date object or ISO string)
 function toInputDate(d: unknown): string {
   if (!d) return ''
+  if (d instanceof Date) return d.toISOString().slice(0, 10)
   const match = String(d).match(/(\d{4}-\d{2}-\d{2})/)
   return match ? match[1] : ''
 }
