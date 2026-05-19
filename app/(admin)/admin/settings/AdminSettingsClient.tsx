@@ -37,8 +37,25 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
   const [s, setS] = useState(initialSettings)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg]         = useState('')
+  const [testEmailLoading, setTestEmailLoading] = useState(false)
+  const [testEmailMsg, setTestEmailMsg]         = useState('')
 
   const set = (k: string, v: string) => setS(prev => ({ ...prev, [k]: v }))
+
+  async function sendTestEmail() {
+    setTestEmailLoading(true); setTestEmailMsg('')
+    const res = await fetch('/api/admin/test-email', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: s.operator_email }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      setTestEmailMsg(`✓ Test email sent to ${data.sentTo}`)
+    } else {
+      setTestEmailMsg(`✗ Failed: ${data.error}${data.config ? ` (host: ${data.config.host}, user: ${data.config.user}, hasPass: ${data.config.hasPass})` : ''}`)
+    }
+    setTestEmailLoading(false)
+  }
 
   async function save() {
     setLoading(true); setMsg('')
@@ -133,6 +150,16 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
 
         <Section title="Operator" />
         <Field label="Operator Email (receives all alerts)" type="email" value={s.operator_email ?? ''} onChange={v => set('operator_email', v)} placeholder="info@tahitonga.com" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+          <button className="btn btn-outline" onClick={sendTestEmail} disabled={testEmailLoading} type="button">
+            {testEmailLoading ? 'Sending…' : 'Send Test Email'}
+          </button>
+          {testEmailMsg && (
+            <span style={{ fontSize: '0.88rem', color: testEmailMsg.startsWith('✓') ? 'var(--success)' : 'var(--error)' }}>
+              {testEmailMsg}
+            </span>
+          )}
+        </div>
 
         <Section title="Whale Season" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

@@ -34,6 +34,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
   const [specialReqs, setSpecialReqs]     = useState('')
   const [datesInTonga, setDatesInTonga]   = useState('')
   const [whatsapp, setWhatsapp]           = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [tcAccepted, setTcAccepted]       = useState(false)
   const [activityAccepted, setActivityAccepted] = useState(false)
 
@@ -74,7 +75,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
 
     const instance = fp('#date-picker', {
       mode: tour.dateCount > 1 ? 'multiple' : 'single',
-      minDate: 'today',
+      minDate: '2026-07-01',
       enable: enabledDates,
       dateFormat: 'Y-m-d',
       disableMobile: false,
@@ -213,7 +214,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           specialRequests: [
             specialReqs.trim(),
             datesInTonga.trim() ? `Dates in Tonga: ${datesInTonga.trim()}` : '',
-            whatsapp ? `WhatsApp: ${whatsapp}` : '',
+            whatsapp ? `WhatsApp linked: ${whatsapp}${whatsapp === 'No' && whatsappNumber ? ` (${whatsappNumber})` : ''}` : '',
           ].filter(Boolean).join('\n\n'),
           promoCode: promoResult?.valid ? promoInput.trim() : undefined,
         }),
@@ -377,17 +378,27 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Dates in Tonga</label>
+              <label>Dates in Tongatapu</label>
               <input value={datesInTonga} onChange={e => setDatesInTonga(e.target.value)}
                 placeholder="e.g. 1 Aug – 14 Aug"
                 title="Helps us offer alternate days in the event of a weather cancel" />
             </div>
             <div className="form-group">
-              <label>WhatsApp Number (if different)</label>
-              <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
-                placeholder="e.g. +64 21 234 5678 — leave blank if same as phone" />
+              <label>Is your number linked to WhatsApp?</label>
+              <select value={whatsapp} onChange={e => { setWhatsapp(e.target.value); setWhatsappNumber('') }}>
+                <option value="">Select…</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
             </div>
           </div>
+          {whatsapp === 'No' && (
+            <div className="form-group">
+              <label>WhatsApp Number</label>
+              <input value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)}
+                placeholder="e.g. +64 21 234 5678" />
+            </div>
+          )}
           <div className="form-group">
             <label>Guest Details & Special Requests</label>
             <textarea value={specialReqs} onChange={e => setSpecialReqs(e.target.value)} rows={5}
@@ -453,7 +464,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           {promoResult && (
             <div className={`promo-result ${promoResult.valid ? 'valid' : 'invalid'}`}>
               {promoResult.valid
-                ? `✓ Code applied — TOP$ ${promoResult.discount?.toFixed(2)} discount`
+                ? `✓ Code applied`
                 : `✗ ${promoResult.error}`
               }
             </div>

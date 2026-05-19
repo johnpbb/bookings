@@ -89,7 +89,7 @@ function ResultContent() {
     <div className="result-card success">
       <span className="result-icon">🐋</span>
       <h1>Booking Confirmed!</h1>
-      <p>Kia orana <strong>{booking.guestName}</strong> — we can't wait to welcome you!</p>
+      <p>Malo e lelei <strong>{booking.guestName}</strong> — we can't wait to welcome you!</p>
       <p style={{ marginTop: 8 }}>A confirmation email is on its way to you.</p>
 
       <div className="result-ref">{booking.reference}</div>

@@ -20,6 +20,8 @@ export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
   const [groupSize, setGroupSize] = useState('')
   const [dates, setDates]         = useState('')
   const [message, setMessage]     = useState('')
+  const [whatsapp, setWhatsapp]         = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [whaleAddon, setWhaleAddon] = useState(false)
   const [loading, setLoading]     = useState(false)
   const [success, setSuccess]     = useState(false)
@@ -41,7 +43,9 @@ export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
         body: JSON.stringify({
           tourId, guestName: name, guestEmail: email, guestPhone: phone,
           groupSize: groupSize ? parseInt(groupSize, 10) : null,
-          preferredDates: dates, message, whaleAddon,
+          preferredDates: dates,
+          message: [message.trim(), whatsapp ? `WhatsApp linked: ${whatsapp}${whatsapp === 'No' && whatsappNumber ? ` (${whatsappNumber})` : ''}` : ''].filter(Boolean).join('\n\n'),
+          whaleAddon,
         }),
       })
       const data = await res.json()
@@ -102,9 +106,27 @@ export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
               <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+64 21 234 5678" />
             </div>
             <div className="form-group">
+              <label>Is your number linked to WhatsApp?</label>
+              <select value={whatsapp} onChange={e => { setWhatsapp(e.target.value); setWhatsappNumber('') }}>
+                <option value="">Select…</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+          </div>
+          {whatsapp === 'No' && (
+            <div className="form-group">
+              <label>WhatsApp Number</label>
+              <input value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)}
+                placeholder="e.g. +64 21 234 5678" />
+            </div>
+          )}
+          <div className="form-row">
+            <div className="form-group">
               <label>Group Size</label>
               <input type="number" min={1} max={30} value={groupSize} onChange={e => setGroupSize(e.target.value)} placeholder="e.g. 4" />
             </div>
+            <div className="form-group" />
           </div>
           <div className="form-group">
             <label>Preferred Date(s)</label>
