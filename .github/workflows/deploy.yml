@@ -1,0 +1,55 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build & Test Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Prisma Generate
+        run: npx prisma generate
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Build Check
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          NEXTAUTH_SECRET: "dummy_secret_for_ci_build"
+
+  deploy:
+    name: Deploy to Server
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OPALSTACK_HOST }}
+          username: ${{ secrets.OPALSTACK_USER }}
+          password: ${{ secrets.OPALSTACK_PASSWORD }}
+          script: |
+            export PATH=/home/tahi_bookings/apps/tahi_booking/node-v20.10.0-linux-x64-glibc-217/bin:$PATH
+            cd ~/apps/tahi_booking
+            git pull origin main
+            npm install
+            npx prisma generate
+            npm run build
+            /home/tahi_bookings/.npm/_npx/5f7878ce38f1eb13/node_modules/pm2/bin/pm2 restart all
