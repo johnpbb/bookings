@@ -47,7 +47,7 @@ jobs:
           password: ${{ secrets.OPALSTACK_PASSWORD }}
           script: |
             export PATH=/home/tahi_bookings/apps/tahi_booking/node-v20.10.0-linux-x64-glibc-217/bin:$PATH
-            cd ~/apps/tahi_booking
+            cd /home/tahi_bookings/apps/tahi_booking
             git pull origin main
             npm install
             npx prisma generate
