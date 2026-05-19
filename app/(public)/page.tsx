@@ -65,7 +65,7 @@ export default async function HomePage() {
                   <p style={{ fontSize: '0.82rem', color: 'var(--ocean-bright)', fontWeight: 600, marginBottom: 8 }}>
                     {tour.tagline}
                   </p>
-                  <p className="tour-card__desc" dangerouslySetInnerHTML={{ __html: tour.desc }} />
+                  <div className="tour-card__desc" dangerouslySetInnerHTML={{ __html: tour.desc }} />
 
                   <div className="tour-card__price">{tour.priceLabel}</div>
                   <div className="tour-card__price-note">{tour.perNote}</div>
@@ -100,7 +100,7 @@ export default async function HomePage() {
                 <p style={{ fontSize: '0.8rem', color: 'var(--ocean-bright)', fontWeight: 600, marginBottom: 10 }}>
                   {tour.tagline}
                 </p>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 20 }} dangerouslySetInnerHTML={{ __html: tour.desc }} />
+                <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: 20 }} dangerouslySetInnerHTML={{ __html: tour.desc }} />
                 <Link href={`/enquiry/${tour.id}`} className="btn btn-outline btn-full">
                   Make an Enquiry →
                 </Link>
