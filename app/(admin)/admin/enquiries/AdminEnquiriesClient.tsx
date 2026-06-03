@@ -58,7 +58,7 @@ export default function AdminEnquiriesClient({ initialEnquiries, tourNames }: { 
                 <td>{tourNames[e.tourId] ?? e.tourId}</td>
                 <td style={{ fontSize: '0.82rem' }}>{e.preferredDates ?? '—'}</td>
                 <td>{e.groupSize ?? '—'}</td>
-                <td style={{ fontSize: '0.82rem' }}>{new Date(e.createdAt).toLocaleDateString('en-NZ')}</td>
+                <td style={{ fontSize: '0.82rem' }}>{new Date(e.createdAt).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu' })}</td>
                 <td>
                   <select value={e.status} disabled={loading}
                     onChange={ev => updateEnquiry(e.id, { status: ev.target.value as any })}

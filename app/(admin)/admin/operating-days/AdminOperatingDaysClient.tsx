@@ -120,7 +120,7 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
               return (
                 <tr key={d.id}>
                   <td style={{ fontWeight: 600 }}>
-                    {new Date(d.operatingDate).toLocaleDateString('en-NZ', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {new Date(d.operatingDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', month: 'short', day: 'numeric' })}
                   </td>
                   <td>{d.totalSeats}</td>
                   <td>{d.seatsHeld}</td>

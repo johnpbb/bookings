@@ -332,7 +332,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           />
           {selectedDates.length > 0 && (
             <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--foam)', borderRadius: 'var(--radius-md)', fontSize: '0.88rem' }}>
-              <strong>Selected:</strong> {selectedDates.map(d => new Date(d).toLocaleDateString('en-NZ', { weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}
+              <strong>Selected:</strong> {selectedDates.map(d => new Date(d).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}
               {selectedDates.length === tour.dateCount && (
                 <span style={{ marginLeft: 8, color: 'var(--success)' }}>✓</span>
               )}
@@ -438,7 +438,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
               <span style={{ color: 'var(--text-muted)' }}>Tour</span>
               <span style={{ fontWeight: 600 }}>{tour.name}</span>
               <span style={{ color: 'var(--text-muted)' }}>Date{selectedDates.length > 1 ? 's' : ''}</span>
-              <span>{selectedDates.map(d => new Date(d).toLocaleDateString('en-NZ', { weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}</span>
+              <span>{selectedDates.map(d => new Date(d).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}</span>
               <span style={{ color: 'var(--text-muted)' }}>Guest Name</span>
               <span>{guestName}</span>
               <span style={{ color: 'var(--text-muted)' }}>Email</span>

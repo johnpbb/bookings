@@ -83,7 +83,7 @@ function ResultContent() {
   }
 
   const dates = booking.bookingDates
-    .map(bd => new Date(bd.tourDate).toLocaleDateString('en-NZ', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))
+    .map(bd => new Date(bd.tourDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }))
 
   return (
     <div className="result-card success">

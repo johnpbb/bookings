@@ -44,6 +44,7 @@ async function tourName(id: string) {
 
 function formatDate(d: Date | string) {
   return new Date(d).toLocaleDateString('en-NZ', {
+    timeZone: 'Pacific/Tongatapu',
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 }

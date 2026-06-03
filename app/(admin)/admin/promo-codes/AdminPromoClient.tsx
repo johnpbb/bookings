@@ -71,9 +71,9 @@ export default function AdminPromoClient({ initialCodes }: { initialCodes: Promo
                 <td>{c.discountType === 'fixed' ? `TOP$ ${Number(c.discountValue).toFixed(0)}` : `${c.discountValue}%`}</td>
                 <td style={{ fontSize: '0.78rem' }}>{c.applicableTours ?? 'All tours'}</td>
                 <td style={{ fontSize: '0.78rem' }}>
-                  {c.validDateStart ? new Date(c.validDateStart).toLocaleDateString('en-NZ', { month: 'short', day: 'numeric' }) : '—'}
+                  {c.validDateStart ? new Date(c.validDateStart).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', month: 'short', day: 'numeric' }) : '—'}
                   {c.validDateStart && c.validDateEnd ? ' → ' : ''}
-                  {c.validDateEnd ? new Date(c.validDateEnd).toLocaleDateString('en-NZ', { month: 'short', day: 'numeric', year: '2-digit' }) : ''}
+                  {c.validDateEnd ? new Date(c.validDateEnd).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', month: 'short', day: 'numeric', year: '2-digit' }) : ''}
                   {c.excludeSundays ? ' (no Sun)' : ''}
                 </td>
                 <td>{c.usesCount}{c.maxUses ? ` / ${c.maxUses}` : ''}</td>

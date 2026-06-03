@@ -484,7 +484,7 @@ export default function AdminBookingsClient({
                   {b.bookingDates.length > 0
                     ? b.bookingDates.map(bd => {
                         const d = toInputDate(bd.tourDate)
-                        return d ? new Date(d).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+                        return d ? new Date(d).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', day: 'numeric', month: 'short', year: 'numeric' }) : ''
                       }).join(', ')
                     : <span style={{ color: 'var(--text-muted)' }}>—</span>
                   }
@@ -670,7 +670,7 @@ export default function AdminBookingsClient({
               ) : (
                 <div style={{ fontSize: '0.88rem' }}>
                   {selected.bookingDates.map(bd => (
-                    <div key={bd.id}>{new Date(bd.tourDate).toLocaleDateString('en-NZ', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                    <div key={bd.id}>{new Date(bd.tourDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
                   ))}
                 </div>
               )}

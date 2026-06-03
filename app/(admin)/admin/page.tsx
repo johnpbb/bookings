@@ -54,7 +54,7 @@ export default async function AdminDashboard() {
       <div className="admin-page-header">
         <h1>Dashboard</h1>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-          {new Date().toLocaleDateString('en-NZ', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          {new Date().toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </span>
       </div>
 
@@ -99,7 +99,7 @@ export default async function AdminDashboard() {
                 <td><a href={`/admin/bookings`} style={{ fontWeight: 600 }}>{b.reference}</a></td>
                 <td>{b.guestName}</td>
                 <td>{TOUR_NAMES[b.tourId] ?? b.tourId}</td>
-                <td>{b.bookingDates[0] ? new Date(b.bookingDates[0].tourDate).toLocaleDateString('en-NZ', { month: 'short', day: 'numeric' }) : '—'}</td>
+                <td>{b.bookingDates[0] ? new Date(b.bookingDates[0].tourDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', month: 'short', day: 'numeric' }) : '—'}</td>
                 <td>{b.numGuests}</td>
                 <td>TOP$ {Number(b.amountTop).toFixed(0)}</td>
                 <td style={{ color: b.assignedVessel ? 'var(--text-primary)' : 'var(--text-muted)', fontStyle: b.assignedVessel ? 'normal' : 'italic' }}>
