@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { releaseExpiredHolds } from '@/lib/cron'
+import { releaseExpiredHolds } from '@/lib/booking'
 
 // Called by Opalstack cron every 5 minutes:
 // curl -H "x-cron-secret: $CRON_SECRET" https://book.tahitonga.com/api/cron/release-holds

@@ -3,6 +3,7 @@
  * Seat availability queries for the public calendar and booking form.
  */
 import { prisma } from './db'
+import { releaseExpiredHolds } from './booking'
 
 export interface DayAvailability {
   available: string[]  // dates with seats free (>4 seats remaining)
@@ -17,6 +18,7 @@ export async function getMonthAvailability(
   month: number,
   year: number,
 ): Promise<DayAvailability> {
+  await releaseExpiredHolds()
   const from = new Date(year, month - 1, 1)
   const to = new Date(year, month, 0) // last day of month
 
@@ -33,6 +35,7 @@ export async function getMonthAvailability(
 // ── Upcoming availability (Flatpickr disable list) ────────────────────────────
 
 export async function getUpcomingAvailability(days = 365): Promise<DayAvailability> {
+  await releaseExpiredHolds()
   const from = new Date()
   const to = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
 
@@ -49,6 +52,7 @@ export async function getUpcomingAvailability(days = 365): Promise<DayAvailabili
 // ── Seats remaining for a single date ─────────────────────────────────────────
 
 export async function getSeatsRemaining(date: string): Promise<number> {
+  await releaseExpiredHolds()
   const row = await prisma.operatingDay.findUnique({
     where: { operatingDate: new Date(date) },
   })
@@ -62,6 +66,7 @@ export async function getSeatsRemaining(date: string): Promise<number> {
 // constrained date in their selection.
 
 export async function getMinSeatsAcrossDates(dates: string[]): Promise<number> {
+  await releaseExpiredHolds()
   if (dates.length === 0) return 0
 
   const rows = await prisma.operatingDay.findMany({
@@ -85,6 +90,7 @@ export async function getMinSeatsAcrossDates(dates: string[]): Promise<number> {
 // ── Admin range query ─────────────────────────────────────────────────────────
 
 export async function getAdminRange(from: string, to: string) {
+  await releaseExpiredHolds()
   return prisma.operatingDay.findMany({
     where: {
       operatingDate: { gte: new Date(from), lte: new Date(to) },

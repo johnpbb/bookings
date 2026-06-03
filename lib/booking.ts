@@ -122,7 +122,33 @@ function checkRateLimit(ip: string): boolean {
 
 // ── PLACE HOLD (core atomic operation) ───────────────────────────────────────
 
+export async function releaseExpiredHolds(): Promise<number> {
+  const now = new Date()
+
+  const expired = await prisma.booking.findMany({
+    where: {
+      status: 'pending_payment',
+      holdExpiresAt: { lte: now },
+    },
+    select: { id: true },
+  })
+
+  let released = 0
+  for (const { id } of expired) {
+    const ok = await releaseHold(id, 'hold_expired')
+    if (ok) released++
+  }
+
+  if (released > 0) {
+    console.log(`[booking] Released ${released} expired hold(s)`)
+  }
+
+  return released
+}
+
 export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
+  await releaseExpiredHolds()
+
   const tour = await getOnlineTour(args.tourId)
   
   // Validate tour type
