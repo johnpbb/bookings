@@ -12,6 +12,7 @@ interface Booking {
   amountTop: string
   bookingDates: Array<{ tourDate: string }>
   tourName?: string
+  resultState?: 'confirmed' | 'failed' | 'ambiguous'
 }
 
 
@@ -69,15 +70,25 @@ function ResultContent() {
   }
 
   const isSuccess = booking.status === 'confirmed'
+  const isAmbiguous = booking.resultState === 'ambiguous'
 
   if (!isSuccess) {
     return (
       <div className="result-card failure">
-        <span className="result-icon">❌</span>
-        <h1>Payment Not Completed</h1>
-        <p>Your booking was not confirmed. No charge has been made.</p>
-        <p>Your seat hold has been released.</p>
-        <a href="/" className="btn btn-primary" style={{ marginTop: 32, display: 'inline-flex' }}>Try Again</a>
+        <span className="result-icon">{isAmbiguous ? '⏳' : '❌'}</span>
+        <h1>{isAmbiguous ? 'Still Confirming Your Payment' : 'Payment Not Completed'}</h1>
+        {isAmbiguous ? (
+          <>
+            <p>We couldn't confirm your payment status in time. If a charge went through, your booking will be confirmed automatically shortly — please check your email (including spam) in a few minutes.</p>
+            <p><strong>Please don't submit a new booking yet.</strong> If you don't hear from us within 30 minutes, contact us with your details before trying again.</p>
+          </>
+        ) : (
+          <>
+            <p>Your booking was not confirmed. No charge has been made.</p>
+            <p>Your seat hold has been released.</p>
+          </>
+        )}
+        <a href="/" className="btn btn-primary" style={{ marginTop: 32, display: 'inline-flex' }}>{isAmbiguous ? 'Back to Home' : 'Try Again'}</a>
       </div>
     )
   }

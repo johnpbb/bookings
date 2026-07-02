@@ -225,6 +225,13 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
         if (data.unavailableDates) {
           setError(`Some dates are no longer available: ${data.unavailableDates.join(', ')}. Please select different dates.`)
           setStep(0)
+        } else if (data.bookingId && data.bookingRef) {
+          // A booking for this guest/tour/dates is already in progress — resume paying it
+          // instead of leaving the customer stuck, so they don't start (and pay for) a second one.
+          setBookingId(data.bookingId)
+          setBookingRef(data.bookingRef)
+          if (data.holdExpiresAt) setHoldExpiresAt(new Date(data.holdExpiresAt))
+          setStep(3)
         }
         return
       }

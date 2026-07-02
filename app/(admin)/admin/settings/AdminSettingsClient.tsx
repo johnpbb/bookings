@@ -82,6 +82,12 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
               placeholder="Enter new secret to update"
               style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }} />
           </div>
+          <div className="form-group">
+            <label>Webhook Notification Secret</label>
+            <input type="password" value={s.egate_webhook_secret ?? ''} onChange={e => set('egate_webhook_secret', e.target.value)}
+              placeholder="From ANZ Merchant Administration > Webhook Notifications"
+              style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem' }} />
+          </div>
         </div>
         <Field label="Production Endpoint URL" value={s.egate_endpoint ?? ''} onChange={v => set('egate_endpoint', v)} />
         <div className="form-group">

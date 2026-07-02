@@ -143,7 +143,9 @@ export async function verifyPaymentOrder(orderId: string): Promise<VerifyOrderRe
         'Authorization': getAuthHeader(mid, pass),
       },
       // Prevent aggressive caching
-      cache: 'no-store'
+      cache: 'no-store',
+      // Don't let a hanging ANZ response stall the whole releaseExpiredHolds() sweep
+      signal: AbortSignal.timeout(8000),
     })
 
     if (!res.ok) {

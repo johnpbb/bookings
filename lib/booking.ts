@@ -6,7 +6,7 @@
 import { prisma } from './db'
 import { validatePromo } from './promo'
 import { sendBookingConfirmation, sendOperatorBookingAlert, sendRefundConfirmation } from './mailer'
-import { processEgateRefund } from './egate'
+import { processEgateRefund, verifyPaymentOrder } from './egate'
 import type { Booking, BookingDate } from '@prisma/client'
 
 import { getOnlineTour } from './tours'
@@ -122,6 +122,42 @@ function checkRateLimit(ip: string): boolean {
 
 // ── PLACE HOLD (core atomic operation) ───────────────────────────────────────
 
+const RELEASE_GRACE_MS = 30 * 60 * 1000 // buffer beyond holdExpiresAt before releasing an ambiguous (unverifiable) order
+
+// Verify a pending_payment booking against ANZ before ever releasing it — cancelling a hold
+// that was actually paid (browser died before it could confirm) is how double payments happen.
+export async function resolvePendingPayment(
+  booking: Pick<Booking, 'id' | 'status' | 'egateOrderId' | 'holdExpiresAt'>,
+): Promise<{ action: 'confirmed' | 'released' | 'left_pending' }> {
+  if (booking.status !== 'pending_payment') return { action: 'left_pending' }
+
+  if (!booking.egateOrderId) {
+    // Never reached ANZ — nothing to verify, safe to release immediately
+    const ok = await releaseHold(booking.id, 'hold_expired')
+    return { action: ok ? 'released' : 'left_pending' }
+  }
+
+  const v = await verifyPaymentOrder(booking.egateOrderId)
+
+  if (v.success && v.status === 'CAPTURED') {
+    const ok = await confirmBooking(booking.id, booking.egateOrderId, v.txnRef ?? '')
+    return { action: ok ? 'confirmed' : 'left_pending' }
+  }
+  if (v.status === 'FAILED') {
+    const ok = await releaseHold(booking.id, 'payment_failed')
+    return { action: ok ? 'released' : 'left_pending' }
+  }
+
+  // PENDING / UNKNOWN (incl. network errors) — inconclusive. Don't cancel a possibly-paid
+  // booking on one ambiguous check; only release once well past expiry.
+  const expiredAt = booking.holdExpiresAt ? new Date(booking.holdExpiresAt).getTime() : 0
+  if (expiredAt && Date.now() - expiredAt > RELEASE_GRACE_MS) {
+    const ok = await releaseHold(booking.id, 'payment_unconfirmed')
+    return { action: ok ? 'released' : 'left_pending' }
+  }
+  return { action: 'left_pending' }
+}
+
 export async function releaseExpiredHolds(): Promise<number> {
   const now = new Date()
 
@@ -130,17 +166,19 @@ export async function releaseExpiredHolds(): Promise<number> {
       status: 'pending_payment',
       holdExpiresAt: { lte: now },
     },
-    select: { id: true },
+    select: { id: true, status: true, egateOrderId: true, holdExpiresAt: true },
   })
 
   let released = 0
-  for (const { id } of expired) {
-    const ok = await releaseHold(id, 'hold_expired')
-    if (ok) released++
+  let recovered = 0
+  for (const booking of expired) {
+    const { action } = await resolvePendingPayment(booking)
+    if (action === 'released') released++
+    else if (action === 'confirmed') recovered++
   }
 
-  if (released > 0) {
-    console.log(`[booking] Released ${released} expired hold(s)`)
+  if (released > 0 || recovered > 0) {
+    console.log(`[booking] Swept ${expired.length} expired hold(s): ${released} released, ${recovered} recovered as confirmed`)
   }
 
   return released
@@ -175,6 +213,42 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
   const ip = args.ipAddress ?? 'unknown'
   if (!checkRateLimit(ip)) {
     return { success: false, error: 'Too many booking attempts. Please try again later.' }
+  }
+
+  // Duplicate-submission guard: don't let a customer create a second hold/charge for the
+  // same tour+dates while a prior attempt is still in flight or already confirmed.
+  const email = args.guestEmail.toLowerCase().trim()
+  let dup = await prisma.booking.findFirst({
+    where: {
+      guestEmail: email,
+      tourId: args.tourId,
+      status: { in: ['pending_payment', 'confirmed'] },
+      bookingDates: { some: { tourDate: { in: dates.map((d) => new Date(d)) } } },
+    },
+    include: { bookingDates: true },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  if (dup && dup.status === 'pending_payment') {
+    // Re-check with ANZ in case it was paid moments ago and hasn't been swept yet
+    await resolvePendingPayment(dup)
+    dup = await prisma.booking.findUnique({ where: { id: dup.id }, include: { bookingDates: true } })
+  }
+
+  if (dup?.status === 'confirmed') {
+    return {
+      success: false,
+      error: `You already have a confirmed booking (ref ${dup.reference}) for these dates — check your email for details.`,
+    }
+  }
+  if (dup?.status === 'pending_payment') {
+    return {
+      success: false,
+      error: `You already have a booking in progress (ref ${dup.reference}). Please finish that payment, or wait a few minutes for it to expire before starting a new one.`,
+      bookingId: dup.id,
+      bookingRef: dup.reference,
+      holdExpiresAt: dup.holdExpiresAt?.toISOString() ?? undefined,
+    }
   }
 
   // Calculate pricing
@@ -341,19 +415,23 @@ export async function confirmBooking(
   })
 
   if (!booking || booking.status !== 'pending_payment') return false;
-  
-  await prisma.$transaction(async (tx) => {
-    await tx.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: 'confirmed',
-        egateOrderId,
-        egateTxnRef,
-        confirmedAt: new Date(),
-        holdExpiresAt: null,
-      },
-    })
 
+  // Atomic conditional update: guards against concurrent callers (client poll, cron sweep,
+  // and the ANZ webhook can all race to confirm the same booking) double-promoting seats
+  // or sending duplicate confirmation emails.
+  const updated = await prisma.booking.updateMany({
+    where: { id: bookingId, status: 'pending_payment' },
+    data: {
+      status: 'confirmed',
+      egateOrderId,
+      egateTxnRef,
+      confirmedAt: new Date(),
+      holdExpiresAt: null,
+    },
+  })
+  if (updated.count === 0) return false
+
+  await prisma.$transaction(async (tx) => {
     // Promote seats_held → seats_booked
     for (const bd of booking.bookingDates) {
       await tx.$executeRaw`

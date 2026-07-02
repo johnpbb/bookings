@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getBookingByEgateOrder } from '@/lib/booking'
-import { verifyPaymentOrder } from '@/lib/egate'
+import { getBookingByEgateOrder, resolvePendingPayment } from '@/lib/booking'
 import { getOnlineTour, getEnquiryTour } from '@/lib/tours'
+
+// Distinguishes "genuinely failed" (safe to tell the customer no charge was made) from
+// "still unconfirmed" (a charge may have gone through — don't encourage resubmission).
+function computeResultState(b: { status: string; cancelReason: string | null }): 'confirmed' | 'failed' | 'ambiguous' {
+  if (b.status === 'confirmed') return 'confirmed'
+  if (b.status === 'cancelled' && b.cancelReason === 'payment_unconfirmed') return 'ambiguous'
+  if (b.status === 'cancelled') return 'failed' // hold_expired (never reached gateway) or payment_failed
+  return 'ambiguous' // still pending_payment
+}
 
 // GET /api/booking/by-order?order_id=TT-42-ABCD1234
 // Polled by result page after user is redirected from Mastercard.
@@ -20,14 +28,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (currentBooking.status === 'pending_payment') {
-    const vResult = await verifyPaymentOrder(orderId)
-    if (vResult.success && vResult.status === 'CAPTURED') {
-      const { confirmBooking } = await import('@/lib/booking')
-      await confirmBooking(currentBooking.id, orderId, vResult.txnRef ?? '')
-    } else if (vResult.status === 'FAILED') {
-      const { releaseHold } = await import('@/lib/booking')
-      await releaseHold(currentBooking.id, 'payment_failed')
-    }
+    await resolvePendingPayment(currentBooking)
     // Fetch fresh state after updates
     currentBooking = await getBookingByEgateOrder(orderId)
   }
@@ -35,6 +36,8 @@ export async function GET(req: NextRequest) {
   if (!currentBooking) {
     return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
   }
+
+  const resultState = computeResultState(currentBooking)
 
   // Strip sensitive fields
   const { egateTxnRef: _txn, ipAddress: _ip, cancelReason: _cr, ...safe } = currentBooking as typeof currentBooking & {
@@ -44,5 +47,5 @@ export async function GET(req: NextRequest) {
   const oTour = await getOnlineTour(currentBooking.tourId)
   const eTour = await getEnquiryTour(currentBooking.tourId)
 
-  return NextResponse.json({ ...safe, tourName: oTour?.name || eTour?.name })
+  return NextResponse.json({ ...safe, resultState, tourName: oTour?.name || eTour?.name })
 }
