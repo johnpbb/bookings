@@ -54,3 +54,17 @@ jobs:
             npx prisma generate
             npm run build
             /home/tahi_bookings/.npm/_npx/5f7878ce38f1eb13/node_modules/pm2/bin/pm2 reload all
+
+      - name: Verify deploy is healthy
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://bookings.tahitonga.com/)
+            if [ "$code" = "200" ]; then
+              echo "Site healthy (HTTP $code)"
+              exit 0
+            fi
+            echo "Attempt $i: got HTTP $code, retrying..."
+            sleep 5
+          done
+          echo "Site did not return 200 after deploy — failing so this doesn't go unnoticed."
+          exit 1
