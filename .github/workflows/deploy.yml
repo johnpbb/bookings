@@ -49,9 +49,9 @@ jobs:
           envs: DEPLOY_SHA
           script: |
             export PATH=/home/tahi_bookings/apps/tahi_booking/node-v20.10.0-linux-x64-glibc-217/bin:$PATH
-            export NEXT_DEPLOYMENT_ID=$DEPLOY_SHA
             cd /home/tahi_bookings/apps/tahi_booking
             git pull origin main
+            echo "NEXT_DEPLOYMENT_ID=$DEPLOY_SHA" > .env.production.local
             npm install
             npx prisma generate
             npm run build
