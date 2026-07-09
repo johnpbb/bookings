@@ -46,14 +46,18 @@ jobs:
           host: ${{ secrets.OPALSTACK_HOST }}
           username: ${{ secrets.OPALSTACK_USER }}
           password: ${{ secrets.OPALSTACK_PASSWORD }}
+          envs: DEPLOY_SHA
           script: |
             export PATH=/home/tahi_bookings/apps/tahi_booking/node-v20.10.0-linux-x64-glibc-217/bin:$PATH
+            export NEXT_DEPLOYMENT_ID=$DEPLOY_SHA
             cd /home/tahi_bookings/apps/tahi_booking
             git pull origin main
             npm install
             npx prisma generate
             npm run build
             /home/tahi_bookings/.npm/_npx/5f7878ce38f1eb13/node_modules/pm2/bin/pm2 reload all
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
 
       - name: Verify deploy is healthy
         run: |

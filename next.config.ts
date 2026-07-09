@@ -4,7 +4,7 @@ import { execSync } from "node:child_process";
 function getDeploymentId(): string | undefined {
   if (process.env.NEXT_DEPLOYMENT_ID) return process.env.NEXT_DEPLOYMENT_ID;
   try {
-    return execSync("git rev-parse --short HEAD").toString().trim();
+    return execSync("git -c safe.directory=* rev-parse --short HEAD").toString().trim();
   } catch {
     return undefined;
   }
