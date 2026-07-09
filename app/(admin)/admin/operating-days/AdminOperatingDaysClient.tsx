@@ -2,6 +2,25 @@
 
 import { useState } from 'react'
 
+type BookingDetail = {
+  id: number
+  reference: string
+  guestName: string
+  numGuests: number
+  status: string
+  assignedVessel: string | null
+  tourId: string
+}
+
+type BookingDateWithBooking = {
+  id: number
+  bookingId: number
+  operatingDayId: number
+  tourDate: Date | string
+  seatsReserved: number
+  booking: BookingDetail
+}
+
 type DayRow = {
   id: number
   operatingDate: Date | string
@@ -10,13 +29,27 @@ type DayRow = {
   seatsBooked: number
   charterVessel: string | null
   isFullyBlocked: boolean
+  bookingDates?: BookingDateWithBooking[]
 }
 
-export default function AdminOperatingDaysClient({ initialDays }: { initialDays: DayRow[] }) {
+const VESSEL_NAMES: Record<string, string> = {
+  mv_ika_nui: 'MV Ika Nui',
+  mv_huelo: 'MV Huelo',
+  hele_kosi: 'Hele Kosi',
+}
+
+export default function AdminOperatingDaysClient({ 
+  initialDays,
+  tourNames = {},
+}: { 
+  initialDays: DayRow[]
+  tourNames?: Record<string, string>
+}) {
   const [days, setDays]       = useState(initialDays)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg]         = useState('')
   const [error, setError]     = useState('')
+  const [selectedDay, setSelectedDay] = useState<DayRow | null>(null)
 
   // Bulk generate form
   const [genStart, setGenStart] = useState('2026-07-01')
@@ -73,6 +106,8 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
     setLoading(false)
   }
 
+  const activeDay = selectedDay ? days.find(d => d.id === selectedDay.id) : null
+
   return (
     <>
       <div className="admin-page-header">
@@ -120,7 +155,13 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
               return (
                 <tr key={d.id}>
                   <td style={{ fontWeight: 600 }}>
-                    {new Date(d.operatingDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', month: 'short', day: 'numeric' })}
+                    <span
+                      style={{ color: 'var(--ocean-deep)', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => setSelectedDay(d)}
+                      title="Click to view bookings for this date"
+                    >
+                      {new Date(d.operatingDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
                   </td>
                   <td>{d.totalSeats}</td>
                   <td>{d.seatsHeld}</td>
@@ -175,6 +216,124 @@ export default function AdminOperatingDaysClient({ initialDays }: { initialDays:
           </tbody>
         </table>
       </div>
+
+      {/* Date Bookings Details Modal */}
+      {activeDay && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24,
+        }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: 40, maxWidth: 700, width: '100%', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <h2 style={{ margin: 0 }}>
+                Bookings for {new Date(activeDay.operatingDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </h2>
+              <button 
+                onClick={() => setSelectedDay(null)}
+                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Summary details */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 24, padding: 16, background: 'var(--foam)', borderRadius: 10 }}>
+              <div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Capacity</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{activeDay.totalSeats} seats</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Held</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{activeDay.seatsHeld}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Booked</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{activeDay.seatsBooked}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Available</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: (activeDay.totalSeats - activeDay.seatsHeld - activeDay.seatsBooked) <= 0 ? 'var(--error)' : 'inherit' }}>
+                  {activeDay.totalSeats - activeDay.seatsHeld - activeDay.seatsBooked}
+                </div>
+              </div>
+            </div>
+
+            {/* Bookings List */}
+            <div>
+              <h3 style={{ marginBottom: 12, fontSize: '1.1rem' }}>Active Bookings & Holds</h3>
+              {(() => {
+                const activeBookingDates = activeDay.bookingDates?.filter(
+                  bd => bd.booking.status === 'confirmed' || bd.booking.status === 'pending_payment'
+                ) || []
+
+                if (activeBookingDates.length === 0) {
+                  return (
+                    <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: 8 }}>
+                      No active bookings or holds for this day.
+                    </div>
+                  )
+                }
+
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table" style={{ boxShadow: 'none', borderRadius: 8 }}>
+                      <thead>
+                        <tr>
+                          <th>Ref</th>
+                          <th>Guest</th>
+                          <th>Guests</th>
+                          <th>Tour</th>
+                          <th>Vessel</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeBookingDates.map(bd => {
+                          const b = bd.booking
+                          const badgeClass = b.status === 'pending_payment' ? 'pending' : b.status
+                          const vesselLabel = b.assignedVessel 
+                            ? (VESSEL_NAMES[b.assignedVessel] || b.assignedVessel) 
+                            : 'Unassigned'
+                          return (
+                            <tr key={bd.id}>
+                              <td>
+                                <a 
+                                  href={`/admin/bookings?search=${b.reference}`}
+                                  style={{ fontWeight: 600, color: 'var(--ocean-deep)', textDecoration: 'underline' }}
+                                  title="View booking in admin panel"
+                                >
+                                  {b.reference}
+                                </a>
+                              </td>
+                              <td>{b.guestName}</td>
+                              <td>{b.numGuests}</td>
+                              <td>{tourNames[b.tourId] ?? b.tourId}</td>
+                              <td style={{ fontStyle: b.assignedVessel ? 'normal' : 'italic', color: b.assignedVessel ? 'inherit' : 'var(--text-muted)' }}>
+                                {vesselLabel}
+                              </td>
+                              <td>
+                                <span className={`status-badge ${badgeClass}`}>
+                                  {b.status.replace('_', ' ')}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })()}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+              <button className="btn btn-outline" onClick={() => setSelectedDay(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

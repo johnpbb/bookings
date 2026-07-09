@@ -33,6 +33,7 @@ model Booking {
   guestPhone      String?       @map("guest_phone") @db.VarChar(30)
   numGuests       Int           @map("num_guests") @db.SmallInt
   amountTop       Decimal       @map("amount_top") @db.Decimal(10, 2)
+  surchargeTop    Decimal       @default(0) @map("surcharge_top") @db.Decimal(10, 2)
   status          String        @default("pending_payment") @db.VarChar(20)
   egateOrderId    String?       @unique @map("egate_order_id") @db.VarChar(60)
   egateTxnRef     String?       @map("egate_txn_ref") @db.VarChar(60)

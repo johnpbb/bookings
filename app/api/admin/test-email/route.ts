@@ -34,20 +34,43 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const transport = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: { user: config.user, pass: process.env.SMTP_PASS },
-    })
+    const { sendBookingConfirmation, sendOperatorBookingAlert } = await import('@/lib/mailer')
+    const { Decimal } = await import('@prisma/client/runtime/library')
 
-    await transport.sendMail({
-      from: `"Tahi Tonga" <${config.from}>`,
-      to: recipient,
-      subject: 'Tahi Tonga — Test Email',
-      text: 'This is a test email from the Tahi Tonga bookings system. If you received this, email sending is working correctly.',
-      html: '<p>This is a test email from the <strong>Tahi Tonga</strong> bookings system.</p><p>If you received this, email sending is working correctly. ✅</p>',
-    })
+    const mockBooking = {
+      id: 0,
+      reference: 'TT-TEST-EMAIL',
+      tourId: 'whale_3day',
+      bookingType: 'online',
+      assignedVessel: 'mv_ika_nui',
+      guestName: 'Sara Morgillo',
+      guestEmail: recipient,
+      guestPhone: '0401196885',
+      numGuests: 1,
+      amountTop: new Decimal('481.00'),
+      surchargeTop: new Decimal('14.00'),
+      status: 'confirmed',
+      egateOrderId: 'TT-0-TEST',
+      egateTxnRef: 'MOCK-TXN-REF',
+      specialRequests: 'Dates in Tonga: Approx 3-18 sep. WhatsApp linked: Yes',
+      promoCode: 'DEPOSIT25%',
+      discountTop: new Decimal('120.25'),
+      refundAmountTop: null,
+      refundedAt: null,
+      cancelReason: null,
+      adminNotes: null,
+      holdExpiresAt: null,
+      confirmedAt: new Date(),
+      ipAddress: '127.0.0.1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any
+
+    const mockDates = ['2026-09-12', '2026-09-14', '2026-09-15']
+
+    // Send both guest confirmation and operator alert templates to the recipient
+    await sendBookingConfirmation({ booking: mockBooking, dates: mockDates })
+    await sendOperatorBookingAlert({ booking: mockBooking, dates: mockDates, toOverride: recipient })
 
     return NextResponse.json({ success: true, sentTo: recipient, config })
   } catch (err: unknown) {

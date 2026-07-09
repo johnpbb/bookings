@@ -67,6 +67,8 @@ export async function sendBookingConfirmation({
   const whatToBring = await getSetting('email_what_to_bring')
 
   const dateList = dates.map((d) => `• ${formatDate(d)}`).join('\n')
+  const hasAdminFee = booking.surchargeTop && Number(booking.surchargeTop) > 0
+  const subtotal = hasAdminFee ? Number(booking.amountTop) - Number(booking.surchargeTop) : 0
 
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e">
@@ -84,7 +86,13 @@ export async function sendBookingConfirmation({
           <tr><td style="padding:8px;color:#666">Guest</td><td style="padding:8px">${booking.guestName}</td></tr>
           <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Guests</td><td style="padding:8px">${booking.numGuests}</td></tr>
           <tr><td style="padding:8px;color:#666">Date(s)</td><td style="padding:8px">${dates.map(formatDate).join('<br/>')}</td></tr>
-          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Amount Paid</td><td style="padding:8px;font-weight:bold">${formatTop(booking.amountTop)}</td></tr>
+          ${hasAdminFee ? `
+            <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Subtotal</td><td style="padding:8px">${formatTop(subtotal)}</td></tr>
+            <tr><td style="padding:8px;color:#666">Administration Fee</td><td style="padding:8px">${formatTop(booking.surchargeTop)}</td></tr>
+            <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Total Paid</td><td style="padding:8px;font-weight:bold">${formatTop(booking.amountTop)}</td></tr>
+          ` : `
+            <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Amount Paid</td><td style="padding:8px;font-weight:bold">${formatTop(booking.amountTop)}</td></tr>
+          `}
           ${booking.promoCode ? `<tr><td style="padding:8px;color:#666">Promo Code</td><td style="padding:8px">${booking.promoCode} (−${formatTop(booking.discountTop)})</td></tr>` : ''}
         </table>
 
@@ -105,7 +113,11 @@ export async function sendBookingConfirmation({
     to: booking.guestEmail,
     subject: `Booking Confirmed — ${await tourName(booking.tourId)} · ${booking.reference}`,
     html,
-    text: `Booking Confirmed!\n\nRef: ${booking.reference}\nTour: ${await tourName(booking.tourId)}\nDates:\n${dateList}\nGuests: ${booking.numGuests}\nTotal: ${formatTop(booking.amountTop)}\n\nSee you soon!`,
+    text: `Booking Confirmed!\n\nRef: ${booking.reference}\nTour: ${await tourName(booking.tourId)}\nDates:\n${dateList}\nGuests: ${booking.numGuests}\n${
+      hasAdminFee
+        ? `Subtotal: ${formatTop(subtotal)}\nAdministration Fee: ${formatTop(booking.surchargeTop)}\nTotal Paid: ${formatTop(booking.amountTop)}`
+        : `Total: ${formatTop(booking.amountTop)}`
+    }\n\nSee you soon!`,
   })
 }
 
@@ -114,11 +126,15 @@ export async function sendBookingConfirmation({
 export async function sendOperatorBookingAlert({
   booking,
   dates,
+  toOverride,
 }: {
   booking: Booking
   dates: string[]
+  toOverride?: string
 }) {
-  const operatorEmail = await getSetting('operator_email', 'info@tahitonga.com')
+  const operatorEmail = toOverride || await getSetting('operator_email', 'info@tahitonga.com')
+  const hasAdminFee = booking.surchargeTop && Number(booking.surchargeTop) > 0
+  const subtotal = hasAdminFee ? Number(booking.amountTop) - Number(booking.surchargeTop) : 0
 
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:auto">
@@ -133,7 +149,13 @@ export async function sendOperatorBookingAlert({
           <tr><td style="padding:6px 0;color:#666">Phone</td><td>${booking.guestPhone ?? '—'}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Guests</td><td>${booking.numGuests}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Date(s)</td><td>${dates.map(formatDate).join('<br/>')}</td></tr>
-          <tr><td style="padding:6px 0;color:#666">Amount</td><td><strong>${formatTop(booking.amountTop)}</strong></td></tr>
+          ${hasAdminFee ? `
+            <tr><td style="padding:6px 0;color:#666">Subtotal</td><td>${formatTop(subtotal)}</td></tr>
+            <tr><td style="padding:6px 0;color:#666">Administration Fee</td><td>${formatTop(booking.surchargeTop)}</td></tr>
+            <tr><td style="padding:6px 0;color:#666">Total Paid</td><td><strong>${formatTop(booking.amountTop)}</strong></td></tr>
+          ` : `
+            <tr><td style="padding:6px 0;color:#666">Amount</td><td><strong>${formatTop(booking.amountTop)}</strong></td></tr>
+          `}
           ${booking.promoCode ? `<tr><td style="padding:6px 0;color:#666">Promo</td><td>${booking.promoCode}</td></tr>` : ''}
           <tr><td style="padding:6px 0;color:#666">Special Requests</td><td>${booking.specialRequests ?? '—'}</td></tr>
         </table>

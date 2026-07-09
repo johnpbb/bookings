@@ -96,6 +96,23 @@ export async function getAdminRange(from: string, to: string) {
       operatingDate: { gte: new Date(from), lte: new Date(to) },
     },
     orderBy: { operatingDate: 'asc' },
+    include: {
+      bookingDates: {
+        include: {
+          booking: {
+            select: {
+              id: true,
+              reference: true,
+              guestName: true,
+              numGuests: true,
+              status: true,
+              assignedVessel: true,
+              tourId: true,
+            }
+          }
+        }
+      }
+    },
   })
 }
 

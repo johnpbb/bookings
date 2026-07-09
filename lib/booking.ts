@@ -339,6 +339,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
         guestPhone: args.guestPhone?.trim() ?? null,
         numGuests: args.numGuests,
         amountTop: finalAmount,
+        surchargeTop: surchargeAmount,
         status: 'pending_payment',
         promoCode: promoCodeUsed || null,
         discountTop: promoDiscount,

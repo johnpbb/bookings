@@ -21,6 +21,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
     amountTop: Number(b.amountTop),
     discountTop: b.discountTop ? Number(b.discountTop) : null,
     refundAmountTop: b.refundAmountTop ? Number(b.refundAmountTop) : null,
+    surchargeTop: b.surchargeTop ? Number(b.surchargeTop) : 0,
   })) as any
 
   const { online, enquiry } = await getToursConfig()

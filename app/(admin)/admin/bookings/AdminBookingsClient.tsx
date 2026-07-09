@@ -70,6 +70,7 @@ export default function AdminBookingsClient({
           amountTop: Number(b.amountTop),
           discountTop: b.discountTop ? Number(b.discountTop) : null,
           refundAmountTop: b.refundAmountTop ? Number(b.refundAmountTop) : null,
+          surchargeTop: b.surchargeTop ? Number(b.surchargeTop) : 0,
         }))
         setBookings(prev => {
           // Prevent duplicates by checking IDs
@@ -544,19 +545,39 @@ export default function AdminBookingsClient({
             {editMsg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{editMsg}</div>}
 
             {/* Read-only booking info */}
-            {[
-              ['Tour', tourNames[selected.tourId] ?? selected.tourId],
-              ['Guests', String(selected.numGuests)],
-              ['Amount', `TOP$ ${Number(selected.amountTop).toFixed(2)}`],
-              ['Promo', selected.promoCode ?? '—'],
-              ['Discount', selected.discountTop ? `TOP$ ${Number(selected.discountTop).toFixed(2)}` : '—'],
-              ['eGate Order', selected.egateOrderId ?? '—'],
-            ].map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '8px 0', fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)', width: 130, flexShrink: 0 }}>{k}</span>
-                <span>{v}</span>
-              </div>
-            ))}
+            {(() => {
+              const detailRows = [
+                ['Tour', tourNames[selected.tourId] ?? selected.tourId],
+                ['Guests', String(selected.numGuests)],
+              ]
+
+              const hasAdminFee = selected.surchargeTop && Number(selected.surchargeTop) > 0
+              if (hasAdminFee) {
+                const subtotal = Number(selected.amountTop) - Number(selected.surchargeTop)
+                detailRows.push(
+                  ['Subtotal', `TOP$ ${subtotal.toFixed(2)}`],
+                  ['Administration Fee', `TOP$ ${Number(selected.surchargeTop).toFixed(2)}`],
+                  ['Total Paid', `TOP$ ${Number(selected.amountTop).toFixed(2)}`]
+                )
+              } else {
+                detailRows.push(
+                  ['Amount Paid', `TOP$ ${Number(selected.amountTop).toFixed(2)}`]
+                )
+              }
+
+              detailRows.push(
+                ['Promo', selected.promoCode ?? '—'],
+                ['Discount', selected.discountTop ? `TOP$ ${Number(selected.discountTop).toFixed(2)}` : '—'],
+                ['eGate Order', selected.egateOrderId ?? '—']
+              )
+
+              return detailRows.map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '8px 0', fontSize: '0.88rem' }}>
+                  <span style={{ color: 'var(--text-muted)', width: 130, flexShrink: 0 }}>{k}</span>
+                  <span>{v}</span>
+                </div>
+              ))
+            })()}
 
             {/* Special Requests */}
             {selected.specialRequests && (

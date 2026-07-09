@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import AdminOperatingDaysClient from './AdminOperatingDaysClient'
+import { getToursConfig } from '@/lib/tours'
 
 export default async function OperatingDaysPage() {
   const session = await getServerSession(authOptions)
@@ -19,10 +20,27 @@ export default async function OperatingDaysPage() {
     orderBy: { operatingDate: 'asc' },
     include: {
       bookingDates: {
-        include: { booking: { select: { status: true, numGuests: true } } }
+        include: {
+          booking: {
+            select: {
+              id: true,
+              reference: true,
+              guestName: true,
+              numGuests: true,
+              status: true,
+              assignedVessel: true,
+              tourId: true,
+            }
+          }
+        }
       }
     },
   })
 
-  return <AdminOperatingDaysClient initialDays={days} />
+  const { online, enquiry } = await getToursConfig()
+  const tourNames = Object.fromEntries(
+    [...online, ...enquiry].map(t => [t.id, t.name])
+  )
+
+  return <AdminOperatingDaysClient initialDays={days as any} tourNames={tourNames} />
 }
