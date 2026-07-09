@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import AdminBookingsClient from './AdminBookingsClient'
 import { getToursConfig } from '@/lib/tours'
+import type { Booking, BookingDate } from '@prisma/client'
+
+type BookingWithDates = Booking & { bookingDates: BookingDate[] }
 
 export default async function AdminBookingsPage({ searchParams }: { searchParams: Promise<{ search?: string }> }) {
   const session = await getServerSession(authOptions)
@@ -22,7 +25,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
     discountTop: b.discountTop ? Number(b.discountTop) : null,
     refundAmountTop: b.refundAmountTop ? Number(b.refundAmountTop) : null,
     surchargeTop: b.surchargeTop ? Number(b.surchargeTop) : 0,
-  })) as any
+  })) as unknown as BookingWithDates[]
 
   const { online, enquiry } = await getToursConfig()
   const tourMap = Object.fromEntries(

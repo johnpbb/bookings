@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import type { Booking } from '@prisma/client'
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       ipAddress: '127.0.0.1',
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as any
+    } as unknown as Booking
 
     const mockDates = ['2026-09-12', '2026-09-14', '2026-09-15']
 
