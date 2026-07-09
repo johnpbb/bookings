@@ -37,10 +37,30 @@ export default async function OperatingDaysPage() {
     },
   })
 
+  const serializedDays = days.map(d => ({
+    id: d.id,
+    operatingDate: d.operatingDate.toISOString(),
+    totalSeats: d.totalSeats,
+    seatsHeld: d.seatsHeld,
+    seatsBooked: d.seatsBooked,
+    charterVessel: d.charterVessel,
+    isFullyBlocked: d.isFullyBlocked,
+    notes: d.notes,
+    createdAt: d.createdAt.toISOString(),
+    bookingDates: d.bookingDates.map(bd => ({
+      id: bd.id,
+      bookingId: bd.bookingId,
+      operatingDayId: bd.operatingDayId,
+      tourDate: bd.tourDate.toISOString(),
+      seatsReserved: bd.seatsReserved,
+      booking: bd.booking,
+    })),
+  }))
+
   const { online, enquiry } = await getToursConfig()
   const tourNames = Object.fromEntries(
     [...online, ...enquiry].map(t => [t.id, t.name])
   )
 
-  return <AdminOperatingDaysClient initialDays={days as any} tourNames={tourNames} />
+  return <AdminOperatingDaysClient initialDays={serializedDays as any} tourNames={tourNames} />
 }
