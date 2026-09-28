@@ -176,6 +176,45 @@ export async function sendOperatorBookingAlert({
   })
 }
 
+// ── 2b. Payment received after seats were released ───────────────────────────
+// The customer was charged, but their hold had already been released and the seats
+// are no longer free — needs a human to squeeze them in or refund.
+
+export async function sendLatePaymentAlert({
+  booking,
+  dates,
+}: {
+  booking: Booking
+  dates: string[]
+}) {
+  const operatorEmail = await getSetting('operator_email', 'info@tahitonga.com')
+
+  await getTransport().sendMail({
+    from: FROM_ADDRESS,
+    to: operatorEmail,
+    subject: `⚠️ Payment received for released booking: ${booking.reference}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px">
+        <h2 style="color:#c0392b">Action needed — customer paid, seats no longer available</h2>
+        <p>ANZ eGate has captured payment for booking <strong>${booking.reference}</strong>, but its
+           seat hold had already been released and there are no longer enough free seats to confirm it
+           automatically. The booking remains <strong>cancelled</strong> in the system.</p>
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:6px 0;color:#666;width:140px">Tour</td><td>${await tourName(booking.tourId)}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Guest</td><td>${booking.guestName}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Email</td><td>${booking.guestEmail}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Phone</td><td>${booking.guestPhone ?? '—'}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Guests</td><td>${booking.numGuests}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Date(s)</td><td>${dates.map(formatDate).join('<br/>')}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Amount Paid</td><td><strong>${formatTop(booking.amountTop)}</strong></td></tr>
+          <tr><td style="padding:6px 0;color:#666">ANZ Order</td><td>${booking.egateOrderId ?? '—'}</td></tr>
+        </table>
+        <p>Please contact the guest to arrange alternative dates (add a manual booking) or a refund via ANZ.</p>
+      </div>
+    `,
+  })
+}
+
 // ── 3. Enquiry submission notification ───────────────────────────────────────
 
 export async function sendEnquiryNotification(enquiry: {

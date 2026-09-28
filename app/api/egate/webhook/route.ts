@@ -1,42 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { prisma } from '@/lib/db'
-import { getBookingByEgateOrder, confirmBooking, releaseHold } from '@/lib/booking'
+import { getBookingByEgateOrder, confirmBooking, recoverLatePayment } from '@/lib/booking'
+import { verifyPaymentOrder } from '@/lib/egate'
 
 // POST /api/egate/webhook
-// ANZ eGate (Mastercard MPGS) webhook notification, sent on Authorization/Capture/etc.
-// Auth is via the X-Notification-Secret header (configured in ANZ Merchant Administration),
-// not an HMAC signature. This is a best-effort fast path — the cron sweep in
-// lib/booking.ts (releaseExpiredHolds -> resolvePendingPayment) remains the authoritative
-// backstop, per ANZ's own guidance that webhooks are an offline, non-guaranteed notification.
+// ANZ eGate (Mastercard MPGS) webhook notification, sent whenever a transaction on an order
+// is created or updated. Auth is via the X-Notification-Secret header (configured in ANZ
+// Merchant Administration → Admin → Webhook Notifications, copied into Admin → Settings).
+//
+// The payload is only used to find the order — the order status is always re-read from the
+// ANZ API, so we act on the authoritative state rather than a single transaction event.
+// Notifications never release a hold: a declined attempt can be followed by a successful
+// retry on the same checkout. The cron sweep in lib/booking.ts (releaseExpiredHolds ->
+// resolvePendingPayment) remains the backstop, as ANZ webhooks are not guaranteed.
 async function webhookSecret(): Promise<string> {
   const s = await prisma.setting.findUnique({ where: { key: 'egate_webhook_secret' } })
-  return s?.value ?? ''
+  return (s?.value ?? '').trim() // tolerate stray whitespace from copy-pasting out of ANZ
+}
+
+function secretsMatch(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
 export async function POST(req: NextRequest) {
   const provided = req.headers.get('x-notification-secret') ?? ''
   const expected = await webhookSecret()
-  if (!expected || provided !== expected) {
+  if (!expected || !secretsMatch(provided, expected)) {
+    console.warn('[egate/webhook] Rejected notification: secret missing or mismatched')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const body = await req.json().catch(() => null)
   const orderId: string | undefined = body?.order?.id
-  const status: string | undefined = body?.status
-  const txnRef: string = body?.transaction?.[0]?.transaction?.id ?? ''
 
-  // Always ack quickly with 2xx so the gateway doesn't burn its 20-attempt retry budget.
+  // Always ack with 2xx for things we don't handle so the gateway doesn't burn its retry budget.
   if (!orderId) return NextResponse.json({ received: true })
 
   const booking = await getBookingByEgateOrder(orderId)
-  if (!booking || booking.status !== 'pending_payment') return NextResponse.json({ received: true })
+  if (!booking) return NextResponse.json({ received: true })
 
-  if (status === 'CAPTURED' || status === 'AUTHORIZED') {
-    await confirmBooking(booking.id, orderId, txnRef)
-  } else if (status === 'FAILED') {
-    await releaseHold(booking.id, 'payment_failed')
+  // Errors below propagate as 5xx so ANZ retries the notification.
+  if (booking.status === 'pending_payment') {
+    const v = await verifyPaymentOrder(orderId)
+    if (v.success && v.status === 'CAPTURED') {
+      await confirmBooking(booking.id, orderId, v.txnRef ?? '')
+    }
+  } else if (booking.status === 'cancelled') {
+    await recoverLatePayment(booking)
   }
-  // Other statuses (PENDING, etc.) or events we don't care about: no-op, ack 2xx.
 
   return NextResponse.json({ received: true })
 }

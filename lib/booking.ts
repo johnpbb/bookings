@@ -5,9 +5,9 @@
  */
 import { prisma } from './db'
 import { validatePromo } from './promo'
-import { sendBookingConfirmation, sendOperatorBookingAlert, sendRefundConfirmation } from './mailer'
+import { sendBookingConfirmation, sendOperatorBookingAlert, sendRefundConfirmation, sendLatePaymentAlert } from './mailer'
 import { processEgateRefund, verifyPaymentOrder } from './egate'
-import type { Booking, BookingDate } from '@prisma/client'
+import type { Booking, BookingDate, Prisma } from '@prisma/client'
 
 import { getOnlineTour } from './tours'
 
@@ -35,6 +35,10 @@ export interface PlaceHoldResult {
   finalAmount?: number
   error?: string
   unavailableDates?: string[]
+  // Set when an existing in-progress booking was reopened instead of creating a new one
+  resumed?: boolean
+  numGuests?: number
+  dates?: string[]
 }
 
 export type BookingWithDates = Booking & { bookingDates: BookingDate[] }
@@ -44,6 +48,48 @@ export type BookingWithDates = Booking & { bookingDates: BookingDate[] }
 async function getHoldMinutes(): Promise<number> {
   const s = await prisma.setting.findUnique({ where: { key: 'hold_minutes' } })
   return parseInt(s?.value ?? '20', 10)
+}
+
+// Give a still-pending booking a fresh hold window. Its seats are still counted in
+// seats_held while it's pending_payment, so extending is safe. Returns null if the
+// booking has since been confirmed or released.
+export async function extendHold(bookingId: number): Promise<Date | null> {
+  const holdExpiresAt = new Date(Date.now() + (await getHoldMinutes()) * 60 * 1000)
+  const updated = await prisma.booking.updateMany({
+    where: { id: bookingId, status: 'pending_payment' },
+    data: { holdExpiresAt },
+  })
+  return updated.count > 0 ? holdExpiresAt : null
+}
+
+// ── Seat counters ─────────────────────────────────────────────────────────────
+// seats_held / seats_booked are recomputed from the bookings themselves rather than
+// incremented/decremented, so they can never drift out of step (deleted bookings,
+// date changes, racing release/confirm, etc.).
+
+export async function recountSeats(tx: Prisma.TransactionClient, operatingDayIds: number[]): Promise<void> {
+  const ids = [...new Set(operatingDayIds)].sort((a, b) => a - b)
+  if (ids.length === 0) return
+
+  // Lock first (in id order, to avoid deadlocks) so the UPDATE below runs with a fresh
+  // snapshot that sees any booking committed by a transaction we waited on.
+  await tx.$queryRaw`SELECT id FROM tt_operating_days WHERE id = ANY(${ids}::int[]) ORDER BY id FOR UPDATE`
+
+  await tx.$executeRaw`
+    UPDATE tt_operating_days od
+    SET
+      seats_held = COALESCE((
+        SELECT SUM(bd.seats_reserved) FROM tt_booking_dates bd
+        JOIN tt_bookings b ON b.id = bd.booking_id
+        WHERE bd.operating_day_id = od.id AND b.status = 'pending_payment'
+      ), 0),
+      seats_booked = COALESCE((
+        SELECT SUM(bd.seats_reserved) FROM tt_booking_dates bd
+        JOIN tt_bookings b ON b.id = bd.booking_id
+        WHERE bd.operating_day_id = od.id AND b.status = 'confirmed'
+      ), 0)
+    WHERE od.id = ANY(${ids}::int[])
+  `
 }
 
 // ── Generate unique booking reference ─────────────────────────────────────────
@@ -242,12 +288,22 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     }
   }
   if (dup?.status === 'pending_payment') {
+    // Reopen it with a fresh hold window — otherwise a customer retrying after a failed
+    // attempt lands on an already-expired timer and can't pay until the old hold is swept.
+    const holdExpiresAt = await extendHold(dup.id)
+    if (!holdExpiresAt) {
+      return { success: false, error: 'Your previous booking attempt was just updated. Please try again.' }
+    }
     return {
       success: false,
-      error: `You already have a booking in progress (ref ${dup.reference}). Please finish that payment, or wait a few minutes for it to expire before starting a new one.`,
+      resumed: true,
+      error: `You already have a booking in progress (ref ${dup.reference}) — we've reopened it so you can finish paying.`,
       bookingId: dup.id,
       bookingRef: dup.reference,
-      holdExpiresAt: dup.holdExpiresAt?.toISOString() ?? undefined,
+      holdExpiresAt: holdExpiresAt.toISOString(),
+      finalAmount: Number(dup.amountTop),
+      numGuests: dup.numGuests,
+      dates: dup.bookingDates.map((bd) => bd.tourDate.toISOString().slice(0, 10)).sort(),
     }
   }
 
@@ -291,29 +347,26 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
   const result = await prisma.$transaction<TxResult>(async (tx) => {
     const unavailable: string[] = []
 
+    // Lock the operating_day rows for these dates (in id order, matching recountSeats)
+    const rows = await tx.$queryRaw<Array<{
+      id: number
+      operating_date: Date
+      total_seats: number
+      seats_held: number
+      seats_booked: number
+      is_fully_blocked: boolean
+    }>>`
+      SELECT id, operating_date, total_seats, seats_held, seats_booked, is_fully_blocked
+      FROM tt_operating_days
+      WHERE operating_date = ANY(${dates}::date[])
+      ORDER BY id
+      FOR UPDATE
+    `
+    const opDayByDate = new Map(rows.map((r) => [r.operating_date.toISOString().slice(0, 10), r]))
+
     for (const date of dates) {
-      // Lock the operating_day row for this date
-      const rows = await tx.$queryRaw<Array<{
-        id: number
-        total_seats: number
-        seats_held: number
-        seats_booked: number
-        is_fully_blocked: boolean
-      }>>`
-        SELECT id, total_seats, seats_held, seats_booked, is_fully_blocked
-        FROM tt_operating_days
-        WHERE operating_date = ${new Date(date)}::date
-        FOR UPDATE
-      `
-
-      if (rows.length === 0) {
-        unavailable.push(date)
-        continue
-      }
-
-      const row = rows[0]
-
-      if (row.is_fully_blocked) {
+      const row = opDayByDate.get(date)
+      if (!row || row.is_fully_blocked) {
         unavailable.push(date)
         continue
       }
@@ -349,28 +402,19 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
       },
     })
 
-    // Insert booking dates + increment seats_held
+    // Insert booking dates, then recount seats_held
     for (const date of dates) {
-      const opDay = await tx.$queryRaw<Array<{ id: number }>>`
-        SELECT id FROM tt_operating_days WHERE operating_date = ${new Date(date)}::date
-      `
-      if (opDay.length === 0) continue
-
+      const opDay = opDayByDate.get(date)!
       await tx.bookingDate.create({
         data: {
           bookingId: booking.id,
-          operatingDayId: opDay[0].id,
+          operatingDayId: opDay.id,
           tourDate: new Date(date),
           seatsReserved: args.numGuests,
         },
       })
-
-      await tx.$executeRaw`
-        UPDATE tt_operating_days
-        SET seats_held = seats_held + ${args.numGuests}
-        WHERE id = ${opDay[0].id}
-      `
     }
+    await recountSeats(tx, rows.map((r) => r.id))
 
     // Increment promo uses atomically
     if (promoCodeUsed) {
@@ -410,40 +454,27 @@ export async function confirmBooking(
   egateOrderId: string,
   egateTxnRef: string,
 ): Promise<boolean> {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { bookingDates: true },
-  })
-
-  if (!booking || booking.status !== 'pending_payment') return false;
-
   // Atomic conditional update: guards against concurrent callers (client poll, cron sweep,
   // and the ANZ webhook can all race to confirm the same booking) double-promoting seats
   // or sending duplicate confirmation emails.
-  const updated = await prisma.booking.updateMany({
-    where: { id: bookingId, status: 'pending_payment' },
-    data: {
-      status: 'confirmed',
-      egateOrderId,
-      egateTxnRef,
-      confirmedAt: new Date(),
-      holdExpiresAt: null,
-    },
-  })
-  if (updated.count === 0) return false
+  const booking = await prisma.$transaction(async (tx) => {
+    const updated = await tx.booking.updateMany({
+      where: { id: bookingId, status: 'pending_payment' },
+      data: {
+        status: 'confirmed',
+        egateOrderId,
+        egateTxnRef,
+        confirmedAt: new Date(),
+        holdExpiresAt: null,
+      },
+    })
+    if (updated.count === 0) return null
 
-  await prisma.$transaction(async (tx) => {
-    // Promote seats_held → seats_booked
-    for (const bd of booking.bookingDates) {
-      await tx.$executeRaw`
-        UPDATE tt_operating_days
-        SET
-          seats_held   = GREATEST(0, seats_held - ${booking.numGuests}),
-          seats_booked = seats_booked + ${booking.numGuests}
-        WHERE id = ${bd.operatingDayId}
-      `
-    }
-  });
+    const b = await tx.booking.findUnique({ where: { id: bookingId }, include: { bookingDates: true } })
+    await recountSeats(tx, b!.bookingDates.map((bd) => bd.operatingDayId))
+    return b
+  })
+  if (!booking) return false;
 
   // Send confirmation emails (background — non-blocking)
   (async () => {
@@ -462,29 +493,98 @@ export async function confirmBooking(
 // ── RELEASE HOLD (expired or payment failed) ──────────────────────────────────
 
 export async function releaseHold(bookingId: number, reason = 'expired'): Promise<boolean> {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { bookingDates: true },
-  })
-
-  if (!booking || booking.status !== 'pending_payment') return false
-
-  await prisma.$transaction(async (tx) => {
-    await tx.booking.update({
-      where: { id: bookingId },
+  // Conditional update so a release can never overwrite a booking that was confirmed
+  // (paid) a moment earlier by a racing caller.
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.booking.updateMany({
+      where: { id: bookingId, status: 'pending_payment' },
       data: { status: 'cancelled', cancelReason: reason },
     })
+    if (updated.count === 0) return false
 
-    for (const bd of booking.bookingDates) {
-      await tx.$executeRaw`
-        UPDATE tt_operating_days
-        SET seats_held = GREATEST(0, seats_held - ${booking.numGuests})
-        WHERE id = ${bd.operatingDayId}
-      `
+    const bds = await tx.bookingDate.findMany({ where: { bookingId }, select: { operatingDayId: true } })
+    await recountSeats(tx, bds.map((bd) => bd.operatingDayId))
+    return true
+  })
+}
+
+// ── RECOVER LATE PAYMENT (paid after the hold was released) ──────────────────
+// A booking can be cancelled for payment_failed / payment_unconfirmed and still end up
+// captured at ANZ (declined card then a successful retry, slow ANZ response, etc.).
+// Re-confirm it if the seats are still free; otherwise flag it and alert the operator.
+
+const RECOVERABLE_CANCEL_REASONS = ['payment_failed', 'payment_unconfirmed']
+
+export async function recoverLatePayment(
+  booking: Pick<Booking, 'id' | 'status' | 'egateOrderId' | 'cancelReason'>,
+): Promise<'confirmed' | 'needs_attention' | 'none'> {
+  if (
+    booking.status !== 'cancelled' ||
+    !booking.egateOrderId ||
+    !RECOVERABLE_CANCEL_REASONS.includes(booking.cancelReason ?? '')
+  ) return 'none'
+
+  const v = await verifyPaymentOrder(booking.egateOrderId)
+  if (!(v.success && v.status === 'CAPTURED')) return 'none'
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const current = await tx.booking.findUnique({ where: { id: booking.id }, include: { bookingDates: true } })
+    if (!current || current.status !== 'cancelled' || !RECOVERABLE_CANCEL_REASONS.includes(current.cancelReason ?? '')) {
+      return 'none' as const
     }
+
+    const ids = [...new Set(current.bookingDates.map((bd) => bd.operatingDayId))].sort((a, b) => a - b)
+    const rows = await tx.$queryRaw<Array<{ total_seats: number; seats_held: number; seats_booked: number; is_fully_blocked: boolean }>>`
+      SELECT total_seats, seats_held, seats_booked, is_fully_blocked
+      FROM tt_operating_days WHERE id = ANY(${ids}::int[]) ORDER BY id FOR UPDATE
+    `
+    const fits = rows.length === ids.length && rows.every(
+      (r) => !r.is_fully_blocked && r.total_seats - r.seats_held - r.seats_booked >= current.numGuests,
+    )
+
+    if (fits) {
+      await tx.booking.update({
+        where: { id: current.id },
+        data: {
+          status: 'confirmed',
+          cancelReason: null,
+          egateTxnRef: v.txnRef ?? '',
+          confirmedAt: new Date(),
+          holdExpiresAt: null,
+        },
+      })
+      await recountSeats(tx, ids)
+      return 'confirmed' as const
+    }
+
+    await tx.booking.update({
+      where: { id: current.id },
+      data: { cancelReason: 'paid_after_release', egateTxnRef: v.txnRef ?? '' },
+    })
+    return 'needs_attention' as const
   })
 
-  return true
+  if (outcome !== 'none') {
+    const full = await prisma.booking.findUnique({ where: { id: booking.id }, include: { bookingDates: true } })
+    if (full) {
+      const dates = full.bookingDates.map((bd) => bd.tourDate.toISOString().slice(0, 10)).sort()
+      console.log(`[booking] Late payment for ${full.reference}: ${outcome}`)
+      ;(async () => {
+        try {
+          if (outcome === 'confirmed') {
+            await sendBookingConfirmation({ booking: full, dates })
+            await sendOperatorBookingAlert({ booking: full, dates })
+          } else {
+            await sendLatePaymentAlert({ booking: full, dates })
+          }
+        } catch (err) {
+          console.error('[booking] Non-critical error sending late-payment emails:', err)
+        }
+      })()
+    }
+  }
+
+  return outcome
 }
 
 // ── CANCEL CONFIRMED (admin-initiated) ────────────────────────────────────────
@@ -523,13 +623,7 @@ export async function cancelConfirmed(
       },
     })
 
-    for (const bd of booking.bookingDates) {
-      await tx.$executeRaw`
-        UPDATE tt_operating_days
-        SET seats_booked = GREATEST(0, seats_booked - ${booking.numGuests})
-        WHERE id = ${bd.operatingDayId}
-      `
-    }
+    await recountSeats(tx, booking.bookingDates.map((bd) => bd.operatingDayId))
   })
 
   // Process eGate refund
@@ -579,39 +673,26 @@ export async function createManualBooking(args: {
         },
       })
 
+      const opDayIds: number[] = []
       for (const date of args.dates) {
         const dateObj = new Date(date)
-        const opDay = await tx.operatingDay.findUnique({
-          where: { operatingDate: dateObj }
+        const opDay = await tx.operatingDay.upsert({
+          where: { operatingDate: dateObj },
+          update: {},
+          create: { operatingDate: dateObj, totalSeats: 16 },
         })
-        let opDayId: number
-        
-        if (!opDay) {
-          const newOp = await tx.operatingDay.create({
-            data: { 
-              operatingDate: dateObj, 
-              totalSeats: 16, 
-              seatsBooked: args.numGuests 
-            }
-          })
-          opDayId = newOp.id
-        } else {
-          opDayId = opDay.id
-          await tx.operatingDay.update({
-            where: { id: opDayId },
-            data: { seatsBooked: { increment: args.numGuests } }
-          })
-        }
+        opDayIds.push(opDay.id)
 
         await tx.bookingDate.create({
           data: {
             bookingId: booking.id,
-            operatingDayId: opDayId,
+            operatingDayId: opDay.id,
             tourDate: dateObj,
             seatsReserved: args.numGuests,
           },
         })
       }
+      await recountSeats(tx, opDayIds)
 
       return booking
     })

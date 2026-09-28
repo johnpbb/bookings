@@ -155,8 +155,13 @@ export async function verifyPaymentOrder(orderId: string): Promise<VerifyOrderRe
 
     const data = await res.json()
 
-    if (data.result === 'SUCCESS' && (data.status === 'CAPTURED' || data.status === 'AUTHORIZED')) {
-      const txnRef = data.transaction?.[0]?.transaction?.id ?? ''
+    // `result` reflects the latest transaction, so a declined attempt followed by a successful
+    // retry can still look odd — trust the order status / captured amount instead.
+    const captured = Number(data.totalCapturedAmount ?? 0) > 0
+    if (captured || data.status === 'CAPTURED' || data.status === 'AUTHORIZED') {
+      const txns: any[] = Array.isArray(data.transaction) ? data.transaction : []
+      const ok = txns.find((t) => t?.result === 'SUCCESS') ?? txns[0]
+      const txnRef = ok?.transaction?.id ?? ''
       return { success: true, status: 'CAPTURED', txnRef }
     } else if (data.status === 'FAILED') {
       return { success: false, status: 'FAILED' }

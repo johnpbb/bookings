@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { prisma } from '@/lib/db'
-import { cancelConfirmed } from '@/lib/booking'
+import { cancelConfirmed, recountSeats } from '@/lib/booking'
 
 // GET /api/admin/bookings?page=1&status=confirmed&tour=whale_3day&from=2026-07-01&to=2026-10-31
 export async function GET(req: NextRequest) {
@@ -100,24 +100,19 @@ export async function PATCH(req: NextRequest) {
     if (!booking) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 })
 
     await prisma.$transaction(async (tx) => {
-      // Release seats on old dates
-      for (const bd of booking.bookingDates) {
-        await tx.$executeRaw`
-          UPDATE tt_operating_days
-          SET seats_booked = GREATEST(0, seats_booked - ${booking.numGuests})
-          WHERE id = ${bd.operatingDayId}
-        `
-      }
+      const oldOpDayIds = booking.bookingDates.map((bd) => bd.operatingDayId)
       // Delete old booking date records
       await tx.bookingDate.deleteMany({ where: { bookingId: id } })
 
-      // Create new booking date records and reserve seats
+      // Create new booking date records
+      const newOpDayIds: number[] = []
       for (const date of newDates) {
         const opDay = await tx.operatingDay.upsert({
           where: { operatingDate: new Date(date) },
           update: {},
-          create: { operatingDate: new Date(date), totalSeats: 16, seatsBooked: 0 },
+          create: { operatingDate: new Date(date), totalSeats: 16 },
         })
+        newOpDayIds.push(opDay.id)
         await tx.bookingDate.create({
           data: {
             bookingId: id,
@@ -126,12 +121,10 @@ export async function PATCH(req: NextRequest) {
             seatsReserved: booking.numGuests,
           },
         })
-        await tx.$executeRaw`
-          UPDATE tt_operating_days
-          SET seats_booked = seats_booked + ${booking.numGuests}
-          WHERE id = ${opDay.id}
-        `
       }
+
+      // Release seats on old dates and reserve them on the new ones
+      await recountSeats(tx, [...oldOpDayIds, ...newOpDayIds])
     })
 
     const updated = await prisma.booking.findUnique({
@@ -208,8 +201,13 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: 'Missing id.' }, { status: 400 })
 
   try {
-    await prisma.bookingDate.deleteMany({ where: { bookingId: id } })
-    await prisma.booking.delete({ where: { id } })
+    await prisma.$transaction(async (tx) => {
+      const bds = await tx.bookingDate.findMany({ where: { bookingId: id }, select: { operatingDayId: true } })
+      await tx.bookingDate.deleteMany({ where: { bookingId: id } })
+      await tx.booking.delete({ where: { id } })
+      // Give the deleted booking's seats back
+      await recountSeats(tx, bds.map((bd) => bd.operatingDayId))
+    })
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('[DELETE /api/admin/bookings]', err)

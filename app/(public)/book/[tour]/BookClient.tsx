@@ -49,6 +49,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
   const [holdExpiresAt, setHoldExpiresAt] = useState<Date | null>(null)
   const [countdown, setCountdown]         = useState('')
   const [countdownUrgent, setCountdownUrgent] = useState(false)
+  const [payAmount, setPayAmount]         = useState<number | null>(null) // amount the server will charge
   const [loading, setLoading]             = useState(false)
   const [error, setError]                 = useState('')
 
@@ -130,20 +131,24 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
   // ── Countdown timer ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!holdExpiresAt) return
-    const interval = setInterval(() => {
+    let interval: ReturnType<typeof setInterval> | undefined
+    const tick = () => {
       const diff = holdExpiresAt.getTime() - Date.now()
       if (diff <= 0) {
         setCountdown('00:00')
-        clearInterval(interval)
-        setError('Your hold has expired. Please start again.')
-        return
+        if (interval) clearInterval(interval)
+        setError('Your seat hold has expired. Press Pay to try to re-secure your seats, or start again.')
+        return false
       }
       const m = Math.floor(diff / 60000)
       const s = Math.floor((diff % 60000) / 1000)
       setCountdown(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`)
       setCountdownUrgent(diff < 5 * 60 * 1000)
-    }, 1000)
-    return () => clearInterval(interval)
+      return true
+    }
+    // Render immediately rather than showing a blank timer for the first second
+    if (tick()) interval = setInterval(tick, 1000)
+    return () => { if (interval) clearInterval(interval) }
   }, [holdExpiresAt])
 
 
@@ -225,11 +230,15 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
         if (data.unavailableDates) {
           setError(`Some dates are no longer available: ${data.unavailableDates.join(', ')}. Please select different dates.`)
           setStep(0)
-        } else if (data.bookingId && data.bookingRef) {
+        } else if (data.resumed && data.bookingId && data.bookingRef) {
           // A booking for this guest/tour/dates is already in progress — resume paying it
-          // instead of leaving the customer stuck, so they don't start (and pay for) a second one.
+          // (with a fresh hold) so they don't start, and pay for, a second one. Show that
+          // booking's own details, which are what will actually be charged.
           setBookingId(data.bookingId)
           setBookingRef(data.bookingRef)
+          if (data.numGuests) setNumGuests(data.numGuests)
+          if (data.dates) setSelectedDates(data.dates)
+          if (data.finalAmount != null) setPayAmount(data.finalAmount)
           if (data.holdExpiresAt) setHoldExpiresAt(new Date(data.holdExpiresAt))
           setStep(3)
         }
@@ -237,6 +246,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
       }
       setBookingId(data.bookingId)
       setBookingRef(data.bookingRef)
+      setPayAmount(data.finalAmount ?? null)
       setHoldExpiresAt(new Date(data.holdExpiresAt))
       setStep(3) // go to payment step
     } catch {
@@ -257,10 +267,18 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
         body: JSON.stringify({ bookingId }),
       })
       const data = await res.json()
+      if (data.alreadyPaid && data.orderId) {
+        router.push(`/booking/result?order_id=${encodeURIComponent(data.orderId)}`)
+        return
+      }
       if (!data.sessionId) {
         setError(data.error ?? 'Payment initiation failed.')
         setLoading(false)
         return
+      }
+      if (data.holdExpiresAt) {
+        setError('')
+        setHoldExpiresAt(new Date(data.holdExpiresAt))
       }
 
       const Checkout = (window as any).Checkout
@@ -548,7 +566,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
             )}
             <div className="price-row total">
               <span>Amount to Pay</span>
-              <span>TOP$ {finalAmount.toFixed(2)}</span>
+              <span>TOP$ {(payAmount ?? finalAmount).toFixed(2)}</span>
             </div>
           </div>
 
@@ -557,7 +575,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           </div>
 
           <button className="btn btn-primary btn-lg btn-full" onClick={initiatePayment} disabled={loading}>
-            {loading ? 'Connecting to payment...' : `Pay TOP$ ${finalAmount.toFixed(2)} Securely →`}
+            {loading ? 'Connecting to payment...' : `Pay TOP$ ${(payAmount ?? finalAmount).toFixed(2)} Securely →`}
           </button>
 
 

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getBookingByEgateOrder, resolvePendingPayment } from '@/lib/booking'
+import { getBookingByEgateOrder, resolvePendingPayment, recoverLatePayment } from '@/lib/booking'
 import { getOnlineTour, getEnquiryTour } from '@/lib/tours'
 
 // Distinguishes "genuinely failed" (safe to tell the customer no charge was made) from
 // "still unconfirmed" (a charge may have gone through — don't encourage resubmission).
-function computeResultState(b: { status: string; cancelReason: string | null }): 'confirmed' | 'failed' | 'ambiguous' {
+function computeResultState(b: { status: string; cancelReason: string | null }): 'confirmed' | 'failed' | 'ambiguous' | 'paid_unplaced' {
   if (b.status === 'confirmed') return 'confirmed'
+  if (b.status === 'cancelled' && b.cancelReason === 'paid_after_release') return 'paid_unplaced'
   if (b.status === 'cancelled' && b.cancelReason === 'payment_unconfirmed') return 'ambiguous'
   if (b.status === 'cancelled') return 'failed' // hold_expired (never reached gateway) or payment_failed
   return 'ambiguous' // still pending_payment
@@ -31,6 +32,13 @@ export async function GET(req: NextRequest) {
     await resolvePendingPayment(currentBooking)
     // Fetch fresh state after updates
     currentBooking = await getBookingByEgateOrder(orderId)
+  }
+
+  // Released before the payment landed (e.g. declined card then a successful retry) —
+  // re-check ANZ so a paying customer is never told their payment failed.
+  if (currentBooking?.status === 'cancelled') {
+    const outcome = await recoverLatePayment(currentBooking)
+    if (outcome !== 'none') currentBooking = await getBookingByEgateOrder(orderId)
   }
 
   if (!currentBooking) {

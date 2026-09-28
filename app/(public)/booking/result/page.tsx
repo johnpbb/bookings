@@ -12,7 +12,7 @@ interface Booking {
   amountTop: string
   bookingDates: Array<{ tourDate: string }>
   tourName?: string
-  resultState?: 'confirmed' | 'failed' | 'ambiguous'
+  resultState?: 'confirmed' | 'failed' | 'ambiguous' | 'paid_unplaced'
 }
 
 
@@ -26,14 +26,18 @@ function ResultContent() {
   useEffect(() => {
     if (!orderId) { setNotFound(true); setLoading(false); return }
 
-    // Poll for booking status — ANZ callback may take a moment
+    // Poll for booking status — ANZ can take a little while to confirm. If it still hasn't
+    // resolved when we give up, show the "still confirming" state — never "no charge made".
+    const MAX_ATTEMPTS = 15
     let attempts = 0
+    let last: Booking | null = null
     const poll = async () => {
       try {
-        const res = await fetch(`/api/booking/by-order?order_id=${encodeURIComponent(orderId)}`)
+        const res = await fetch(`/api/booking/by-order?order_id=${encodeURIComponent(orderId)}`, { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
-          if (data.status !== 'pending_payment' || attempts >= 8) {
+          last = data
+          if (data.status !== 'pending_payment') {
             setBooking(data)
             setLoading(false)
             return
@@ -41,8 +45,12 @@ function ResultContent() {
         }
       } catch { /* ignore */ }
       attempts++
-      if (attempts < 8) setTimeout(poll, 2000)
-      else { setNotFound(true); setLoading(false) }
+      if (attempts < MAX_ATTEMPTS) setTimeout(poll, 2000)
+      else {
+        if (last) setBooking({ ...(last as Booking), resultState: 'ambiguous' })
+        else setNotFound(true)
+        setLoading(false)
+      }
     }
 
     setTimeout(poll, 1500) // give ANZ callback a head start
@@ -60,17 +68,29 @@ function ResultContent() {
   if (notFound || !booking) {
     return (
       <div className="result-card failure">
-        <span className="result-icon">❌</span>
-        <h1>Payment Unsuccessful</h1>
-        <p>Your payment could not be confirmed. No charge has been made.</p>
-        <p>Your seat hold has been released.</p>
-        <a href="/" className="btn btn-primary" style={{ marginTop: 32, display: 'inline-flex' }}>Try Again</a>
+        <span className="result-icon">⏳</span>
+        <h1>We Couldn't Check Your Booking</h1>
+        <p>We weren't able to load your payment status just now. If a charge went through, your booking will be confirmed automatically — please check your email (including spam) in a few minutes.</p>
+        <p><strong>Please don't submit a new booking yet.</strong> If you don't hear from us within 30 minutes, contact us at <a href="mailto:info@tahitonga.com">info@tahitonga.com</a>.</p>
+        <a href="/" className="btn btn-primary" style={{ marginTop: 32, display: 'inline-flex' }}>Back to Home</a>
       </div>
     )
   }
 
   const isSuccess = booking.status === 'confirmed'
   const isAmbiguous = booking.resultState === 'ambiguous'
+
+  if (booking.resultState === 'paid_unplaced') {
+    return (
+      <div className="result-card failure">
+        <span className="result-icon">📩</span>
+        <h1>Payment Received — We'll Be in Touch</h1>
+        <p>We've received your payment for booking <strong>{booking.reference}</strong>, but your seat hold had expired and those seats have since been taken.</p>
+        <p>Our team has been notified and will contact you shortly to arrange alternative dates or a full refund. <strong>Please don't submit a new booking.</strong></p>
+        <p>Questions? <a href="mailto:info@tahitonga.com">info@tahitonga.com</a></p>
+      </div>
+    )
+  }
 
   if (!isSuccess) {
     return (
