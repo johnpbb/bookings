@@ -55,7 +55,15 @@ jobs:
             npm install
             npx prisma generate
             npm run build
-            /home/tahi_bookings/.npm/_npx/5f7878ce38f1eb13/node_modules/pm2/bin/pm2 reload all --update-env
+            PM2=/home/tahi_bookings/.npm/_npx/5f7878ce38f1eb13/node_modules/pm2/bin/pm2
+            # If the PM2 daemon died (e.g. server restart) there is nothing to reload,
+            # so start the app from the ecosystem file instead.
+            if $PM2 describe tahi-bookings > /dev/null 2>&1; then
+              $PM2 reload tahi-bookings --update-env
+            else
+              $PM2 start ecosystem.config.js
+            fi
+            $PM2 save
         env:
           DEPLOY_SHA: ${{ github.sha }}
 
