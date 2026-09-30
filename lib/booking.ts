@@ -10,6 +10,7 @@ import { processEgateRefund, verifyPaymentOrder } from './egate'
 import type { Booking, BookingDate, Prisma } from '@prisma/client'
 
 import { getOnlineTour } from './tours'
+import { calcBasePrice } from './pricing'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -111,19 +112,10 @@ async function generateRef(): Promise<string> {
 
 // ── Price calculation ─────────────────────────────────────────────────────────
 
-export async function calculateBasePrice(tourId: string, numGuests: number): Promise<number> {
+export async function calculateBasePrice(tourId: string, numGuests: number, dates: string[]): Promise<number> {
   const tour = await getOnlineTour(tourId)
   if (!tour) return 0
-
-  if (tourId === 'island_reef') {
-    const smallPrice = tour.reefPriceSmall || 400
-    const largePrice = tour.reefPriceLarge || 320
-    const ppp = numGuests >= 5 ? largePrice : smallPrice
-    return ppp * numGuests
-  }
-  
-  const ppp = tour.pricePerPerson ?? 0
-  return ppp * numGuests
+  return calcBasePrice(tour, numGuests, dates)
 }
 
 // ── Refund calculation ────────────────────────────────────────────────────────
@@ -308,7 +300,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
   }
 
   // Calculate pricing
-  const baseAmount = await calculateBasePrice(args.tourId, args.numGuests)
+  const baseAmount = await calculateBasePrice(args.tourId, args.numGuests, dates)
   let promoDiscount = 0
   let promoCodeUsed = ''
 
@@ -319,7 +311,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     }
     promoDiscount = promo.discountType === 'percent'
       ? Math.round(baseAmount * promo.discount! / 100 * 100) / 100
-      : promo.discount!
+      : promo.discount! * args.numGuests // fixed discounts are per person
     promoCodeUsed = promo.code!
   }
 

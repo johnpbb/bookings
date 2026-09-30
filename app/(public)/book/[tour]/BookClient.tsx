@@ -5,15 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
 
 import { OnlineTour } from '@/lib/tours'
+import { calcBasePrice, findSeasonPrice, resolvePricePerPerson } from '@/lib/pricing'
 
 type PromoResult = { valid: boolean; discount?: number; discountType?: string; code?: string; error?: string }
-
-function calcPrice(tour: OnlineTour, numGuests: number): number {
-  if (tour.id === 'island_reef') {
-    return numGuests >= 5 ? (tour.reefPriceLarge || 320) * numGuests : (tour.reefPriceSmall || 400) * numGuests
-  }
-  return (tour.pricePerPerson ?? 0) * numGuests
-}
 
 type Surcharge = { enabled: boolean; label: string; type: 'fixed' | 'percentage'; amount: number }
 
@@ -55,7 +49,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
 
   // ── Load availability for Flatpickr ──────────────────────────────────────
   useEffect(() => {
-    fetch('/api/availability?mode=upcoming&days=365')
+    fetch('/api/availability?mode=upcoming&days=730')
       .then(r => r.json())
       .then(setAvailability)
       .catch(console.error)
@@ -76,7 +70,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
 
     const instance = fp('#date-picker', {
       mode: tour.dateCount > 1 ? 'multiple' : 'single',
-      minDate: '2026-07-01',
+      minDate: 'today',
       enable: enabledDates,
       dateFormat: 'Y-m-d',
       disableMobile: false,
@@ -101,7 +95,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
       },
       onChange(dates: Date[], dateStr: string, fpInstance: any) {
         const strs = dates.map(d => fpInstance.formatDate(d, 'Y-m-d'))
-        setSelectedDates(strs)
+        setSelectedDates([...strs].sort())
         setError('')
 
         // Enforce required date count
@@ -154,11 +148,12 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
 
 
   // ── Derived price ─────────────────────────────────────────────────────────
-  const baseAmount = calcPrice(tour, numGuests)
+  const baseAmount = calcBasePrice(tour, numGuests, selectedDates)
+  const seasonLabel = findSeasonPrice(tour, selectedDates)?.label
   const promoDiscount = promoResult?.valid
     ? promoResult.discountType === 'percent'
       ? Math.round(baseAmount * (promoResult.discount ?? 0) / 100 * 100) / 100
-      : (promoResult.discount ?? 0)
+      : (promoResult.discount ?? 0) * numGuests // fixed discounts are per person
     : 0
   const subtotal = Math.max(0, baseAmount - promoDiscount)
   const surchargeAmount = surcharge?.enabled && surcharge.amount > 0
@@ -498,7 +493,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           {/* Price summary */}
           <div className="price-summary">
             <div className="price-row">
-              <span>{numGuests} guest{numGuests > 1 ? 's' : ''} × {tour.id === 'island_reef' ? `TOP$ ${numGuests >= 5 ? (tour.reefPriceLarge || 320) : (tour.reefPriceSmall || 400)}pp` : `TOP$ ${tour.pricePerPerson}`}</span>
+              <span>{numGuests} guest{numGuests > 1 ? 's' : ''} × {tour.id === 'island_reef' ? `TOP$ ${numGuests >= 5 ? (tour.reefPriceLarge || 320) : (tour.reefPriceSmall || 400)}pp` : `TOP$ ${resolvePricePerPerson(tour, selectedDates)}${seasonLabel ? ` (${seasonLabel})` : ''}`}</span>
               <span>TOP$ {baseAmount.toFixed(2)}</span>
             </div>
             {promoResult?.valid && (

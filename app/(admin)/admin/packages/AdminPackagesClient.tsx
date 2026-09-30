@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { OnlineTour, EnquiryTour } from '@/lib/tours'
+import type { SeasonPrice } from '@/lib/pricing'
 import RichTextEditor from './RichTextEditor'
 
 function ImageUploader({
@@ -293,6 +294,36 @@ export default function AdminPackagesClient({
                     </div>
                   )}
                 </div>
+
+                {t.id !== 'island_reef' && (
+                  <div className="form-group">
+                    <label>Season prices (override the base price when the first selected date falls in a range)</label>
+                    {(t.seasonPrices ?? []).map((sp, si) => {
+                      const updateSeason = (patch: Partial<SeasonPrice>) =>
+                        updateOnline(idx, { seasonPrices: (t.seasonPrices ?? []).map((s, i) => i === si ? { ...s, ...patch } : s) })
+                      return (
+                        <div key={si} style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                          <input placeholder="Label (e.g. Peak season)" value={sp.label} style={{ flex: '2 1 140px' }}
+                            onChange={e => updateSeason({ label: e.target.value })} />
+                          <input type="date" value={sp.start} style={{ flex: '1 1 130px' }}
+                            onChange={e => updateSeason({ start: e.target.value })} />
+                          <input type="date" value={sp.end} style={{ flex: '1 1 130px' }}
+                            onChange={e => updateSeason({ end: e.target.value })} />
+                          <input type="number" placeholder="TOP$ pp" value={sp.pricePerPerson || ''} style={{ flex: '1 1 90px' }}
+                            onChange={e => updateSeason({ pricePerPerson: parseInt(e.target.value) || 0 })} />
+                          <button type="button" className="btn btn-outline"
+                            onClick={() => updateOnline(idx, { seasonPrices: (t.seasonPrices ?? []).filter((_, i) => i !== si) })}>
+                            Remove
+                          </button>
+                        </div>
+                      )
+                    })}
+                    <button type="button" className="btn btn-outline"
+                      onClick={() => updateOnline(idx, { seasonPrices: [...(t.seasonPrices ?? []), { label: '', start: '', end: '', pricePerPerson: 0 }] })}>
+                      + Add season price
+                    </button>
+                  </div>
+                )}
 
                 <div className="form-row">
                   <div className="form-group">

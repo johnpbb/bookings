@@ -68,7 +68,7 @@ export default function AdminPromoClient({ initialCodes }: { initialCodes: Promo
               <tr key={c.id}>
                 <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{c.code}</td>
                 <td>{c.discountType}</td>
-                <td>{c.discountType === 'fixed' ? `TOP$ ${Number(c.discountValue).toFixed(0)}` : `${c.discountValue}%`}</td>
+                <td>{c.discountType === 'fixed' ? `TOP$ ${Number(c.discountValue).toFixed(0)} per person` : `${c.discountValue}%`}</td>
                 <td style={{ fontSize: '0.78rem' }}>{c.applicableTours ?? 'All tours'}</td>
                 <td style={{ fontSize: '0.78rem' }}>
                   {c.validDateStart ? new Date(c.validDateStart).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', month: 'short', day: 'numeric' }) : '—'}

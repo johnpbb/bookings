@@ -41,6 +41,40 @@ async function main() {
     },
   })
 
+  // 2027 season — TOP$350 off per person, whale_3day only (1,850pp → 1,500pp). Excludes Sundays.
+  // Code names are provisional until the client confirms them.
+  await prisma.promoCode.upsert({
+    where: { code: 'SEASONOPEN2027' },
+    update: {},
+    create: {
+      code: 'SEASONOPEN2027',
+      discountType: 'fixed',
+      discountValue: 350.00,
+      applicableTours: 'whale_3day',
+      validDateStart: new Date('2027-07-01'),
+      validDateEnd: new Date('2027-07-16'),
+      excludeSundays: true,
+      maxUses: null,
+      notes: 'Season Opening Special: before 17 July 2027',
+    },
+  })
+
+  await prisma.promoCode.upsert({
+    where: { code: 'SEASONCLOSE2027' },
+    update: {},
+    create: {
+      code: 'SEASONCLOSE2027',
+      discountType: 'fixed',
+      discountValue: 350.00,
+      applicableTours: 'whale_3day',
+      validDateStart: new Date('2027-10-12'),
+      validDateEnd: new Date('2027-10-31'),
+      excludeSundays: true,
+      maxUses: null,
+      notes: 'Season Closing Special: after 11 October 2027',
+    },
+  })
+
   console.log('  ✓ Promo codes seeded')
 
   // ── Default settings ───────────────────────────────────────────────────────
