@@ -32,6 +32,8 @@ type DayRow = {
   bookingDates?: BookingDateWithBooking[]
 }
 
+const YEARS = [2026, 2027]
+
 const VESSEL_NAMES: Record<string, string> = {
   mv_ika_nui: 'MV Ika Nui',
   mv_huelo: 'MV Huelo',
@@ -51,9 +53,21 @@ export default function AdminOperatingDaysClient({
   const [error, setError]     = useState('')
   const [selectedDay, setSelectedDay] = useState<DayRow | null>(null)
 
+  const [year, setYear] = useState(() => {
+    const y = new Date().getFullYear()
+    return YEARS.includes(y) ? y : YEARS[0]
+  })
+
   // Bulk generate form
-  const [genStart, setGenStart] = useState('2026-07-01')
-  const [genEnd, setGenEnd]     = useState('2026-10-31')
+  const [genStart, setGenStart] = useState(`${year}-07-01`)
+  const [genEnd, setGenEnd]     = useState(`${year}-10-31`)
+
+  function selectYear(y: number) {
+    setYear(y)
+    setSelectedDay(null)
+    setGenStart(`${y}-07-01`)
+    setGenEnd(`${y}-10-31`)
+  }
 
   async function bulkGenerate() {
     setLoading(true); setMsg(''); setError('')
@@ -67,7 +81,11 @@ export default function AdminOperatingDaysClient({
       setMsg(`✓ Created ${data.created} operating days (Mon–Sat, excluding holidays)`)
       // Refresh list
       const refreshed = await fetch(`/api/admin/operating-days?from=${genStart}&to=${genEnd}`)
-      setDays(await refreshed.json())
+      const fresh: DayRow[] = await refreshed.json()
+      const freshIds = new Set(fresh.map(d => d.id))
+      setDays(ds => [...ds.filter(d => !freshIds.has(d.id)), ...fresh].sort(
+        (a, b) => new Date(a.operatingDate).getTime() - new Date(b.operatingDate).getTime()
+      ))
     } else {
       setError(data.error ?? 'Error generating days.')
     }
@@ -106,6 +124,8 @@ export default function AdminOperatingDaysClient({
     setLoading(false)
   }
 
+  const visibleDays = days.filter(d => new Date(d.operatingDate).getUTCFullYear() === year)
+
   const activeDay = selectedDay ? days.find(d => d.id === selectedDay.id) : null
 
   return (
@@ -140,6 +160,18 @@ export default function AdminOperatingDaysClient({
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {YEARS.map(y => (
+          <button
+            key={y}
+            className={y === year ? 'btn btn-primary' : 'btn'}
+            onClick={() => selectYear(y)}
+          >
+            {y}
+          </button>
+        ))}
+      </div>
+
       {/* Days table */}
       <div style={{ overflowX: 'auto' }}>
         <table className="data-table">
@@ -149,7 +181,7 @@ export default function AdminOperatingDaysClient({
             </tr>
           </thead>
           <tbody>
-            {days.map(d => {
+            {visibleDays.map(d => {
               const dateStr = new Date(d.operatingDate).toISOString().slice(0, 10)
               const available = d.totalSeats - d.seatsHeld - d.seatsBooked
               return (
@@ -208,9 +240,9 @@ export default function AdminOperatingDaysClient({
                 </tr>
               )
             })}
-            {days.length === 0 && (
+            {visibleDays.length === 0 && (
               <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>
-                No operating days yet. Use "Generate Season" above to create them.
+                No operating days for {year} yet. Use "Generate Season" above to create them.
               </td></tr>
             )}
           </tbody>

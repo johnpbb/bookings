@@ -3,17 +3,10 @@
 import { useState, useEffect } from 'react'
 import type { Booking, BookingDate } from '@prisma/client'
 import type { OnlineTour } from '@/lib/tours'
+import { calcBasePrice } from '@/lib/pricing'
 
 type BookingWithDates = Booking & { bookingDates: BookingDate[] }
 type Surcharge = { enabled: boolean; type: 'fixed' | 'percentage'; amount: number }
-
-function calcTourPrice(tour: OnlineTour, numGuests: number): number {
-  if (tour.id === 'island_reef') {
-    const ppp = numGuests >= 5 ? (tour.reefPriceLarge ?? 320) : (tour.reefPriceSmall ?? 400)
-    return ppp * numGuests
-  }
-  return (tour.pricePerPerson ?? 0) * numGuests
-}
 
 function applyTourSurcharge(subtotal: number, surcharge: Surcharge): number {
   if (!surcharge.enabled || surcharge.amount <= 0) return subtotal
@@ -147,14 +140,14 @@ export default function AdminBookingsClient({
     if (!manualForm.tourId) { setAmountAutoCalc(''); return }
     const tour = onlineTours.find(t => t.id === manualForm.tourId)
     if (!tour) { setAmountAutoCalc(''); return }
-    const subtotal = calcTourPrice(tour, manualForm.numGuests)
+    const subtotal = calcBasePrice(tour, manualForm.numGuests, manualForm.dates.filter(Boolean))
     const total = applyTourSurcharge(subtotal, surcharge)
     const label = surcharge.enabled && surcharge.amount > 0
       ? `TOP$ ${subtotal.toFixed(2)} + ${surcharge.type === 'percentage' ? `${surcharge.amount}%` : `TOP$ ${surcharge.amount}`} surcharge = TOP$ ${total.toFixed(2)}`
       : `TOP$ ${total.toFixed(2)}`
     setAmountAutoCalc(label)
     setManualForm(f => ({ ...f, amountTop: total.toFixed(2) }))
-  }, [manualForm.tourId, manualForm.numGuests])
+  }, [manualForm.tourId, manualForm.numGuests, manualForm.dates])
 
   const filtered = bookings.filter(b => {
     if (filter.status && b.status !== filter.status) return false

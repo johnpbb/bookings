@@ -20,7 +20,7 @@ export interface OnlineTour {
   // Specific internal configuration for logic
   dateCount: number
   pricePerPerson: number | null
-  // Date-range price tiers (e.g. Jul/Oct vs Aug/Sep). pricePerPerson is the fallback.
+  // Date-range price tiers (e.g. Jul/Oct vs Aug/Sep). pricePerPerson is the fallback (2026 pricing).
   seasonPrices?: SeasonPrice[]
   reefPriceSmall?: number
   reefPriceLarge?: number
@@ -44,7 +44,7 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     emoji: '🐋',
     tagline: 'Swim with humpback whales',
     desc: 'A full day in the water with humpback whales. This is the experience that brings guests back year after year.',
-    priceLabel: 'From TOP$ 650',
+    priceLabel: 'TOP$ 650',
     perNote: 'per person',
     badge: 'Most popular',
     type: 'book',
@@ -63,7 +63,7 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     emoji: '🌊',
     tagline: 'Three days, your own chosen dates',
     desc: 'Choose any 3 operating days across the season. More time in the water means a much higher chance of meaningful encounters.',
-    priceLabel: 'From TOP$ 1,850',
+    priceLabel: 'TOP$ 1,850',
     perNote: 'per person (all 3 days)',
     badge: null,
     type: 'book',
@@ -82,13 +82,13 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     emoji: '🏝️',
     tagline: 'The ultimate whale season immersion',
     desc: 'Five full days on the water, on dates you choose. The best way to truly experience Tonga\'s humpback season.',
-    priceLabel: 'From TOP$ 3,000',
+    priceLabel: 'TOP$ 1,100',
     perNote: 'per person (all 5 days)',
     badge: 'Best value',
     type: 'book',
     isActive: true,
     dateCount: 5,
-    pricePerPerson: 3000,
+    pricePerPerson: 1100,
     seasonPrices: [
       { label: 'Fringe season', start: '2027-07-01', end: '2027-07-31', pricePerPerson: 3000 },
       { label: 'Peak season', start: '2027-08-01', end: '2027-09-30', pricePerPerson: 3250 },
