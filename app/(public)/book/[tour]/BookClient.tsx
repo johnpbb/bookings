@@ -568,6 +568,9 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
           <div className="alert alert-info" style={{ marginBottom: 24 }}>
             💳 You will be redirected to ANZ eGate for secure payment in Tongan Paʻanga (TOP).
           </div>
+          <div className="alert alert-info" style={{ marginBottom: 24 }}>
+            ⚠️ Please turn off any VPN before paying. VPNs can cause the payment to fail or be declined.
+          </div>
 
           <button className="btn btn-primary btn-lg btn-full" onClick={initiatePayment} disabled={loading}>
             {loading ? 'Connecting to payment...' : `Pay TOP$ ${(payAmount ?? finalAmount).toFixed(2)} Securely →`}
