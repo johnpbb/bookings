@@ -579,6 +579,18 @@ h3 {
   accent-color: var(--ocean-bright);
 }
 
+.editable-copy { font-size: 0.88rem; line-height: 1.55; margin-bottom: 10px; }
+.editable-copy p { margin: 0 0 6px; }
+.editable-copy p:last-child { margin-bottom: 0; }
+.editable-copy ul, .editable-copy ol { margin: 0; padding-left: 20px; }
+.checkbox-group .editable-copy { margin-bottom: 0; }
+
+.tiptap a { color: var(--ocean-deep); text-decoration: underline; }
+.tiptap ul, .tiptap ol { padding-left: 22px; }
+.tiptap h2 { font-size: 1.3rem; margin: 18px 0 8px; }
+.tiptap h3 { font-size: 1.05rem; margin: 14px 0 6px; }
+.tiptap p { margin: 0 0 8px; }
+
 /* ── Price summary box ───────────────────────────────────────────────────── */
 .price-summary {
   background: var(--foam);

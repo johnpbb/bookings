@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       reference: booking.reference,
       tourId: booking.tourId,
       amountTop: booking.amountTop,
+      egateOrderId: booking.egateOrderId,
     })
 
     return NextResponse.json({ ...sessionData, holdExpiresAt: holdExpiresAt.toISOString() })

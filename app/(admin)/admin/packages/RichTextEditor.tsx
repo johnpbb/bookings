@@ -25,13 +25,18 @@ const toolbarBtnActive: React.CSSProperties = {
 export default function RichTextEditor({
   value,
   onChange,
+  emailTools = false,
+  minHeight = 120,
 }: {
   value: string
   onChange: (html: string) => void
+  /** Adds a larger heading and link buttons, for email and form wording. */
+  emailTools?: boolean
+  minHeight?: number
 }) {
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit],
+    extensions: [StarterKit.configure({ link: { openOnClick: false } })],
     content: value,
     onUpdate({ editor }) {
       onChange(editor.getHTML())
@@ -39,7 +44,7 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         style: [
-          'min-height:120px',
+          `min-height:${minHeight}px`,
           'padding:12px 14px',
           'outline:none',
           'font-size:0.9rem',
@@ -61,6 +66,15 @@ export default function RichTextEditor({
 
   const B = (active: boolean) => (active ? toolbarBtnActive : toolbarBtn)
 
+  function editLink() {
+    if (!editor) return
+    const url = window.prompt('Link address (leave empty to remove the link)', editor.getAttributes('link').href ?? 'https://')
+    if (url === null) return
+    const chain = editor.chain().focus().extendMarkRange('link')
+    if (url.trim() === '' || url.trim() === 'https://') chain.unsetLink().run()
+    else chain.setLink({ href: url.trim() }).run()
+  }
+
   return (
     <div style={{ border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: '#fff' }}>
       {/* Toolbar */}
@@ -73,9 +87,15 @@ export default function RichTextEditor({
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }}>
           <em>I</em>
         </button>
+        {emailTools && (
+          <button type="button" style={B(editor.isActive('heading', { level: 2 }))}
+            onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 2 }).run() }}>
+            Heading
+          </button>
+        )}
         <button type="button" style={B(editor.isActive('heading', { level: 3 }))}
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 3 }).run() }}>
-          H
+          {emailTools ? 'Subheading' : 'H'}
         </button>
         <span style={{ width: 1, background: 'var(--border)', margin: '2px 4px' }} />
         <button type="button" style={B(editor.isActive('bulletList'))}
@@ -86,6 +106,12 @@ export default function RichTextEditor({
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run() }}>
           1. List
         </button>
+        {emailTools && (
+          <button type="button" style={B(editor.isActive('link'))}
+            onMouseDown={e => { e.preventDefault(); editLink() }}>
+            Link
+          </button>
+        )}
         <span style={{ width: 1, background: 'var(--border)', margin: '2px 4px' }} />
         <button type="button" style={toolbarBtn}
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().undo().run() }}>

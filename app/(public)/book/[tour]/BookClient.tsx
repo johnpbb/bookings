@@ -6,12 +6,13 @@ import Script from 'next/script'
 
 import { OnlineTour } from '@/lib/tours'
 import { calcBasePrice, findSeasonPrice, resolvePricePerPerson } from '@/lib/pricing'
+import type { WhaleFormContent } from '@/lib/whaleContent'
 
 type PromoResult = { valid: boolean; discount?: number; discountType?: string; code?: string; error?: string }
 
 type Surcharge = { enabled: boolean; label: string; type: 'fixed' | 'percentage'; amount: number }
 
-export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surcharge?: Surcharge }) {
+export default function BookClient({ tour, surcharge, whaleForm }: { tour: OnlineTour; surcharge?: Surcharge; whaleForm?: WhaleFormContent }) {
   const router = useRouter()
   const tourId = tour.id
 
@@ -31,6 +32,7 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [tcAccepted, setTcAccepted]       = useState(false)
   const [activityAccepted, setActivityAccepted] = useState(false)
+  const [ackChecked, setAckChecked]       = useState<Record<number, boolean>>({})
 
   // Step 3: review + promo
   const [promoInput, setPromoInput]   = useState('')
@@ -176,8 +178,13 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
     if (step === 1) {
       if (!guestName.trim()) { setError('Please enter your name.'); return }
       if (!guestEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { setError('Please enter a valid email address.'); return }
-      if (!tcAccepted) { setError('Please accept the Terms & Conditions to continue.'); return }
-      if (!activityAccepted) { setError('Please confirm you have read the activity requirements to continue.'); return }
+      if (whaleForm) {
+        if (!specialReqs.trim()) { setError('Please enter the details for every guest to continue.'); return }
+        if (whaleForm.ackItems.some((_, i) => !ackChecked[i])) { setError('Please tick every box to continue.'); return }
+      } else {
+        if (!tcAccepted) { setError('Please accept the Terms & Conditions to continue.'); return }
+        if (!activityAccepted) { setError('Please confirm you have read the activity requirements to continue.'); return }
+      }
     }
     setStep(s => s + 1)
   }
@@ -419,6 +426,27 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
                 placeholder="e.g. +64 21 234 5678" />
             </div>
           )}
+          {whaleForm ? (
+            <>
+              <div className="form-group">
+                <label htmlFor="guest-details">{whaleForm.guestHeading} *</label>
+                <div className="editable-copy" dangerouslySetInnerHTML={{ __html: whaleForm.guestIntro }} />
+                <textarea id="guest-details" value={specialReqs} onChange={e => setSpecialReqs(e.target.value)} rows={9}
+                  required placeholder={whaleForm.guestExample} />
+              </div>
+              <p style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: 12 }}>{whaleForm.ackIntro}</p>
+              {whaleForm.ackItems.map((item, i) => (
+                <div className="checkbox-group" key={i} style={{ marginBottom: i === whaleForm.ackItems.length - 1 ? 24 : 10 }}>
+                  <input type="checkbox" id={`ack-${i}`} checked={!!ackChecked[i]}
+                    onChange={e => setAckChecked(prev => ({ ...prev, [i]: e.target.checked }))} />
+                  <label htmlFor={`ack-${i}`} className="editable-copy"
+                    style={{ fontSize: '0.88rem', fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}
+                    dangerouslySetInnerHTML={{ __html: item }} />
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
           <div className="form-group">
             <label>Guest Details & Special Requests</label>
             <textarea value={specialReqs} onChange={e => setSpecialReqs(e.target.value)} rows={5}
@@ -440,6 +468,8 @@ export default function BookClient({ tour, surcharge }: { tour: OnlineTour; surc
               I understand that this activity requires me / booked guests to swim wearing fins and a mask &amp; snorkel, in the open ocean, and to climb a boat ladder. I understand that limitations in my/booked guests' abilities may limit the experience and chances to swim.
             </label>
           </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between' }}>
             <button className="btn btn-outline" onClick={() => setStep(0)}>← Back</button>
             <button className="btn btn-primary btn-lg" onClick={handleNext}>Continue →</button>

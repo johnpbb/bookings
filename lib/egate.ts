@@ -2,7 +2,6 @@
  * lib/egate.ts
  * ANZ eGate integration — REST JSON API (Hosted Checkout Session).
  */
-import crypto from 'crypto'
 import { prisma } from './db'
 
 // ── Config helpers ────────────────────────────────────────────────────────────
@@ -48,6 +47,7 @@ export async function buildPaymentSession(
     reference: string
     tourId: string
     amountTop: number | string | { toString(): string }
+    egateOrderId?: string | null
     currency?: string
     origin?: string
   },
@@ -59,7 +59,9 @@ export async function buildPaymentSession(
 
   const amount = Number(booking.amountTop).toFixed(2)
   const currency = booking.currency ?? 'TOP'
-  const orderId = generateOrderId(bookingId, booking.reference)
+  // The ANZ order carries the guest's booking number so payments match bookings directly.
+  // A booking that already reached ANZ under an older ID keeps it, so a retry stays on one order.
+  const orderId = booking.egateOrderId ?? booking.reference
   
   // Use Database setting, then runtime APP_URL, then fallback
   const dbAppUrl = await getSetting('app_url')
@@ -82,7 +84,12 @@ export async function buildPaymentSession(
       id: orderId,
       amount: amount,
       currency: currency,
-      description: `Tahi Tonga — ${friendlyTourName(booking.tourId)} (${booking.reference})`,
+      description: `Tahi Tonga - ${friendlyTourName(booking.tourId)} (${booking.reference})`,
+      // ANZ's daily transaction report shows a merchant reference column; fill it with the booking number
+      reference: booking.reference,
+    },
+    transaction: {
+      reference: booking.reference,
     },
   }
 
@@ -234,11 +241,6 @@ export async function processEgateRefund(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function generateOrderId(bookingId: number, ref: string): string {
-  const hash = crypto.createHash('md5').update(ref).digest('hex').slice(0, 8).toUpperCase()
-  return `TT-${bookingId}-${hash.substring(0, 5)}`
-}
 
 function friendlyTourName(tourId: string): string {
   const names: Record<string, string> = {

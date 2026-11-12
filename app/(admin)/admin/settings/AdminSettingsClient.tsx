@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import RichTextEditor from '../packages/RichTextEditor'
+import { DEFAULT_WHALE_EMAIL_BODY, DEFAULT_WHALE_FORM, parseAckItems } from '@/lib/whaleContent'
 
 type Settings = Record<string, string>
 
@@ -41,6 +43,12 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
   const [testEmailMsg, setTestEmailMsg]         = useState('')
 
   const set = (k: string, v: string) => setS(prev => ({ ...prev, [k]: v }))
+
+  const [ackItems, setAckItemsState] = useState(() => parseAckItems(initialSettings.whale_form_ack_items))
+  const setAckItems = (items: string[]) => {
+    setAckItemsState(items)
+    set('whale_form_ack_items', JSON.stringify(items))
+  }
 
   async function sendTestEmail() {
     setTestEmailLoading(true); setTestEmailMsg('')
@@ -180,7 +188,45 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>Easter Sunday and Christmas Day pre-seeded.</p>
         </div>
 
-        <Section title="Confirmation Email Content" />
+        <Section title="Whale Booking Form" />
+        <Field label="Guest Details Heading" value={s.whale_form_guest_heading ?? DEFAULT_WHALE_FORM.guestHeading} onChange={v => set('whale_form_guest_heading', v)} />
+        <div className="form-group">
+          <label>Guest Details Instructions</label>
+          <RichTextEditor emailTools value={s.whale_form_guest_intro ?? DEFAULT_WHALE_FORM.guestIntro} onChange={v => set('whale_form_guest_intro', v)} />
+        </div>
+        <div className="form-group">
+          <label>Example Shown Inside the Box</label>
+          <textarea value={s.whale_form_guest_example ?? DEFAULT_WHALE_FORM.guestExample} onChange={e => set('whale_form_guest_example', e.target.value)} rows={8}
+            style={{ width: '100%', padding: '10px 14px', border: '1.5px solid var(--border)', borderRadius: 10, fontSize: '0.9rem', resize: 'vertical' }} />
+        </div>
+        <Field label="Tick Box Introduction" value={s.whale_form_ack_intro ?? DEFAULT_WHALE_FORM.ackIntro} onChange={v => set('whale_form_ack_intro', v)} />
+        <div className="form-group">
+          <label>Tick Boxes (guests must tick every one)</label>
+          {ackItems.map((item, i) => (
+            <div key={i} style={{ marginBottom: 12 }}>
+              <RichTextEditor emailTools minHeight={60} value={item}
+                onChange={v => setAckItems(ackItems.map((x, j) => (j === i ? v : x)))} />
+              <button type="button" className="btn btn-outline" style={{ marginTop: 6, padding: '4px 12px', fontSize: '0.78rem' }}
+                disabled={ackItems.length === 1}
+                onClick={() => setAckItems(ackItems.filter((_, j) => j !== i))}>
+                Remove this tick box
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-outline" onClick={() => setAckItems([...ackItems, '<p>New tick box wording</p>'])}>
+            + Add a tick box
+          </button>
+        </div>
+
+        <Section title="Whale Confirmation Email" />
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+          Sent below the guest&apos;s booking details. Paste from Word or Google Docs, or use the buttons to format. To see the real email, press Save All Settings, then Send Test Email above.
+        </p>
+        <div className="form-group">
+          <RichTextEditor emailTools minHeight={360} value={s.email_whale_body ?? DEFAULT_WHALE_EMAIL_BODY} onChange={v => set('email_whale_body', v)} />
+        </div>
+
+        <Section title="Confirmation Email Content (Outer Reef Excursion)" />
         <div className="form-group">
           <label>Meeting Point Instructions</label>
           <textarea value={s.email_meeting_point ?? ''} onChange={e => set('email_meeting_point', e.target.value)} rows={2}

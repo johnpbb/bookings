@@ -8,6 +8,7 @@ import nodemailer from 'nodemailer'
 import { prisma } from './db'
 import type { Booking } from '@prisma/client'
 import { getOnlineTour, getEnquiryTour, getToursConfig } from './tours'
+import { DEFAULT_WHALE_EMAIL_BODY, emailHtmlToText, isBlankHtml, isWhaleTour, styleEmailHtml } from './whaleContent'
 
 // ── Transport ────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,10 @@ function formatDate(d: Date | string) {
   })
 }
 
+function escapeHtml(text: string) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function formatTop(amount: number | string | { toString(): string }) {
   return `TOP$ ${Number(amount).toFixed(2)}`
 }
@@ -65,6 +70,10 @@ export async function sendBookingConfirmation({
   const meetingPoint = await getSetting('email_meeting_point')
   const inclusions = await getSetting('email_inclusions')
   const whatToBring = await getSetting('email_what_to_bring')
+  const savedWhaleBody = await getSetting('email_whale_body')
+  const whaleBody = isWhaleTour(booking.tourId)
+    ? (isBlankHtml(savedWhaleBody) ? DEFAULT_WHALE_EMAIL_BODY : savedWhaleBody)
+    : null
 
   const dateList = dates.map((d) => `• ${formatDate(d)}`).join('\n')
   const hasAdminFee = booking.surchargeTop && Number(booking.surchargeTop) > 0
@@ -96,6 +105,7 @@ export async function sendBookingConfirmation({
           ${booking.promoCode ? `<tr><td style="padding:8px;color:#666">Promo Code</td><td style="padding:8px">${booking.promoCode} (−${formatTop(booking.discountTop)})</td></tr>` : ''}
         </table>
 
+        ${whaleBody !== null ? styleEmailHtml(whaleBody) : `
         ${meetingPoint ? `<h3 style="color:#0a4f6e">Meeting Point</h3><p>${meetingPoint}</p>` : ''}
         ${inclusions ? `<h3 style="color:#0a4f6e">What's Included</h3><p>${inclusions}</p>` : ''}
         ${whatToBring ? `<h3 style="color:#0a4f6e">What to Bring</h3><p>${whatToBring}</p>` : ''}
@@ -103,6 +113,7 @@ export async function sendBookingConfirmation({
 
         <p style="margin-top:24px">Our <a href="https://tahitonga.com/terms-conditions/" style="color:#0a4f6e">cancellation policy</a> applies to this booking.</p>
         <p>Questions? Reply to this email or contact us at info@tahitonga.com</p>
+        `}
         <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga Whale Watching · Nukuʻalofa, Tonga</p>
       </div>
     </div>
@@ -117,7 +128,7 @@ export async function sendBookingConfirmation({
       hasAdminFee
         ? `Subtotal: ${formatTop(subtotal)}\nAdministration Fee: ${formatTop(booking.surchargeTop)}\nTotal Paid: ${formatTop(booking.amountTop)}`
         : `Total: ${formatTop(booking.amountTop)}`
-    }\n\nSee you soon!`,
+    }\n\n${whaleBody !== null ? emailHtmlToText(whaleBody) : 'See you soon!'}`,
   })
 }
 
@@ -157,7 +168,7 @@ export async function sendOperatorBookingAlert({
             <tr><td style="padding:6px 0;color:#666">Amount</td><td><strong>${formatTop(booking.amountTop)}</strong></td></tr>
           `}
           ${booking.promoCode ? `<tr><td style="padding:6px 0;color:#666">Promo</td><td>${booking.promoCode}</td></tr>` : ''}
-          <tr><td style="padding:6px 0;color:#666">Special Requests</td><td>${booking.specialRequests ?? '—'}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Special Requests</td><td style="white-space:pre-wrap">${booking.specialRequests ? escapeHtml(booking.specialRequests) : '—'}</td></tr>
         </table>
         <p style="margin-top:24px">
           <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/bookings?search=${booking.reference}" style="background:#0a4f6e;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px">
