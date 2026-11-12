@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import RichTextEditor from '../packages/RichTextEditor'
 import { DEFAULT_WHALE_EMAIL_BODY, DEFAULT_WHALE_FORM, parseAckItems } from '@/lib/whaleContent'
+import { DEFAULT_OFFSEASON_EMAILS, OFFSEASON_ACK_KEY, OFFSEASON_EMAILS, parseOffseasonAcks } from '@/lib/offseasonContent'
 
 type Settings = Record<string, string>
 
@@ -48,6 +49,12 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
   const setAckItems = (items: string[]) => {
     setAckItemsState(items)
     set('whale_form_ack_items', JSON.stringify(items))
+  }
+
+  const [offseasonAcks, setOffseasonAcksState] = useState(() => parseOffseasonAcks(initialSettings[OFFSEASON_ACK_KEY]))
+  const setOffseasonAcks = (items: string[]) => {
+    setOffseasonAcksState(items)
+    set(OFFSEASON_ACK_KEY, JSON.stringify(items))
   }
 
   async function sendTestEmail() {
@@ -226,7 +233,37 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
           <RichTextEditor emailTools minHeight={360} value={s.email_whale_body ?? DEFAULT_WHALE_EMAIL_BODY} onChange={v => set('email_whale_body', v)} />
         </div>
 
-        <Section title="Confirmation Email Content (Outer Reef Excursion)" />
+        <Section title="Island & Fishing Booking Form" />
+        <div className="form-group">
+          <label>Tick Boxes (guests must tick every one)</label>
+          {offseasonAcks.map((item, i) => (
+            <div key={i} style={{ marginBottom: 12 }}>
+              <RichTextEditor emailTools minHeight={60} value={item}
+                onChange={v => setOffseasonAcks(offseasonAcks.map((x, j) => (j === i ? v : x)))} />
+              <button type="button" className="btn btn-outline" style={{ marginTop: 6, padding: '4px 12px', fontSize: '0.78rem' }}
+                disabled={offseasonAcks.length === 1}
+                onClick={() => setOffseasonAcks(offseasonAcks.filter((_, j) => j !== i))}>
+                Remove this tick box
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-outline" onClick={() => setOffseasonAcks([...offseasonAcks, '<p>New tick box wording</p>'])}>
+            + Add a tick box
+          </button>
+        </div>
+
+        <Section title="Island & Fishing Confirmation Emails" />
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+          Each email is sent below the guest&apos;s booking details.
+        </p>
+        {OFFSEASON_EMAILS.map(email => (
+          <div className="form-group" key={email.key}>
+            <label>{email.label}</label>
+            <RichTextEditor emailTools minHeight={300} value={s[email.key] ?? DEFAULT_OFFSEASON_EMAILS[email.key]} onChange={v => set(email.key, v)} />
+          </div>
+        ))}
+
+        <Section title="Confirmation Email Content (other packages)" />
         <div className="form-group">
           <label>Meeting Point Instructions</label>
           <textarea value={s.email_meeting_point ?? ''} onChange={e => set('email_meeting_point', e.target.value)} rows={2}

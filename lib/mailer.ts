@@ -9,6 +9,8 @@ import { prisma } from './db'
 import type { Booking } from '@prisma/client'
 import { getOnlineTour, getEnquiryTour, getToursConfig } from './tours'
 import { DEFAULT_WHALE_EMAIL_BODY, emailHtmlToText, isBlankHtml, isWhaleTour, styleEmailHtml } from './whaleContent'
+import { offseasonRule } from './offseason'
+import { DEFAULT_OFFSEASON_EMAILS, offseasonEmailKey } from './offseasonContent'
 
 // ── Transport ────────────────────────────────────────────────────────────────
 
@@ -71,8 +73,14 @@ export async function sendBookingConfirmation({
   const inclusions = await getSetting('email_inclusions')
   const whatToBring = await getSetting('email_what_to_bring')
   const savedWhaleBody = await getSetting('email_whale_body')
-  const whaleBody = isWhaleTour(booking.tourId)
+  const rule = offseasonRule(booking.tourId)
+  const offseasonKey = offseasonEmailKey(booking.tourId)
+  const savedOffseasonBody = offseasonKey ? await getSetting(offseasonKey) : ''
+  // Wording staff manage in Settings; null means the older meeting point / inclusions layout
+  const customBody = isWhaleTour(booking.tourId)
     ? (isBlankHtml(savedWhaleBody) ? DEFAULT_WHALE_EMAIL_BODY : savedWhaleBody)
+    : offseasonKey
+    ? (isBlankHtml(savedOffseasonBody) ? DEFAULT_OFFSEASON_EMAILS[offseasonKey] : savedOffseasonBody)
     : null
 
   const dateList = dates.map((d) => `• ${formatDate(d)}`).join('\n')
@@ -83,11 +91,11 @@ export async function sendBookingConfirmation({
     <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e">
       <div style="background:#0a4f6e;padding:32px 24px;text-align:center">
         <div style="color:#fff;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;opacity:0.8">Tahi Tonga</div>
-        <h1 style="color:#fff;margin:0;font-size:22px">Booking Confirmed! 🐋</h1>
+        <h1 style="color:#fff;margin:0;font-size:22px">Booking Confirmed!${rule ? '' : ' 🐋'}</h1>
       </div>
       <div style="padding:32px 24px;background:#fff">
         <p>Hi ${booking.guestName},</p>
-        <p>Your booking for <strong>${await tourName(booking.tourId)}</strong> is confirmed. We can't wait to welcome you!</p>
+        ${rule ? '' : `<p>Your booking for <strong>${await tourName(booking.tourId)}</strong> is confirmed. We can't wait to welcome you!</p>`}
 
         <table style="width:100%;border-collapse:collapse;margin:24px 0">
           <tr><td style="padding:8px;color:#666">Booking Ref</td><td style="padding:8px;font-weight:bold">${booking.reference}</td></tr>
@@ -105,7 +113,7 @@ export async function sendBookingConfirmation({
           ${booking.promoCode ? `<tr><td style="padding:8px;color:#666">Promo Code</td><td style="padding:8px">${booking.promoCode} (−${formatTop(booking.discountTop)})</td></tr>` : ''}
         </table>
 
-        ${whaleBody !== null ? styleEmailHtml(whaleBody) : `
+        ${customBody !== null ? styleEmailHtml(customBody) : `
         ${meetingPoint ? `<h3 style="color:#0a4f6e">Meeting Point</h3><p>${meetingPoint}</p>` : ''}
         ${inclusions ? `<h3 style="color:#0a4f6e">What's Included</h3><p>${inclusions}</p>` : ''}
         ${whatToBring ? `<h3 style="color:#0a4f6e">What to Bring</h3><p>${whatToBring}</p>` : ''}
@@ -114,7 +122,7 @@ export async function sendBookingConfirmation({
         <p style="margin-top:24px">Our <a href="https://tahitonga.com/terms-conditions/" style="color:#0a4f6e">cancellation policy</a> applies to this booking.</p>
         <p>Questions? Reply to this email or contact us at info@tahitonga.com</p>
         `}
-        <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga Whale Watching · Nukuʻalofa, Tonga</p>
+        <p style="color:#999;font-size:12px;margin-top:32px">${rule ? 'Tahi Tonga' : 'Tahi Tonga Whale Watching'} · Nukuʻalofa, Tonga</p>
       </div>
     </div>
   `
@@ -122,13 +130,15 @@ export async function sendBookingConfirmation({
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: booking.guestEmail,
-    subject: `Booking Confirmed — ${await tourName(booking.tourId)} · ${booking.reference}`,
+    subject: rule
+      ? `Booking Confirmation - ${rule.emailTitle} | Tahi Tonga · ${booking.reference}`
+      : `Booking Confirmed — ${await tourName(booking.tourId)} · ${booking.reference}`,
     html,
     text: `Booking Confirmed!\n\nRef: ${booking.reference}\nTour: ${await tourName(booking.tourId)}\nDates:\n${dateList}\nGuests: ${booking.numGuests}\n${
       hasAdminFee
         ? `Subtotal: ${formatTop(subtotal)}\nAdministration Fee: ${formatTop(booking.surchargeTop)}\nTotal Paid: ${formatTop(booking.amountTop)}`
         : `Total: ${formatTop(booking.amountTop)}`
-    }\n\n${whaleBody !== null ? emailHtmlToText(whaleBody) : 'See you soon!'}`,
+    }\n\n${customBody !== null ? emailHtmlToText(customBody) : 'See you soon!'}`,
   })
 }
 
@@ -282,11 +292,11 @@ export async function sendReefMinPaxWarning(date: string, confirmedSeats: number
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: operatorEmail,
-    subject: `⚠️ Outer Reef Min Pax Not Met — ${formatDate(date)}`,
+    subject: `⚠️ Reef & Outer Island Adventure: Minimum Numbers Not Met — ${formatDate(date)}`,
     html: `
       <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px">
-        <h2 style="color:#c0392b">Outer Reef — Minimum Passengers Not Met</h2>
-        <p>The Outer Reef Excursion scheduled for <strong>${formatDate(date)}</strong> has only 
+        <h2 style="color:#c0392b">Reef &amp; Outer Island Adventure — Minimum Passengers Not Met</h2>
+        <p>The Reef &amp; Outer Island Adventure scheduled for <strong>${formatDate(date)}</strong> has only 
            <strong>${confirmedSeats} confirmed seat(s)</strong> with the cutoff at 5pm today.</p>
         <p>Minimum required: 4 guests.</p>
         <p>Please contact all booked guests for this date to offer alternative dates or a full refund.</p>

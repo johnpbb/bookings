@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { prisma } from '@/lib/db'
 import { cancelConfirmed, recountSeats } from '@/lib/booking'
+import { calendarForTour, offseasonRule, seatsToReserve } from '@/lib/offseason'
 
 // GET /api/admin/bookings?page=1&status=confirmed&tour=whale_3day&from=2026-07-01&to=2026-10-31
 export async function GET(req: NextRequest) {
@@ -108,9 +109,13 @@ export async function PATCH(req: NextRequest) {
       const newOpDayIds: number[] = []
       for (const date of newDates) {
         const opDay = await tx.operatingDay.upsert({
-          where: { operatingDate: new Date(date) },
+          where: { calendar_operatingDate: { calendar: calendarForTour(booking.tourId), operatingDate: new Date(date) } },
           update: {},
-          create: { operatingDate: new Date(date), totalSeats: 16 },
+          create: {
+            calendar: calendarForTour(booking.tourId),
+            operatingDate: new Date(date),
+            totalSeats: offseasonRule(booking.tourId)?.capacity ?? 16,
+          },
         })
         newOpDayIds.push(opDay.id)
         await tx.bookingDate.create({
@@ -118,7 +123,7 @@ export async function PATCH(req: NextRequest) {
             bookingId: id,
             operatingDayId: opDay.id,
             tourDate: new Date(date),
-            seatsReserved: booking.numGuests,
+            seatsReserved: seatsToReserve(booking.tourId, booking.numGuests),
           },
         })
       }

@@ -15,7 +15,7 @@ export default async function OperatingDaysPage() {
   const to = new Date('2027-12-31T23:59:59Z')
 
   const days = await prisma.operatingDay.findMany({
-    where: { operatingDate: { gte: from, lte: to } },
+    where: { calendar: 'whale', operatingDate: { gte: from, lte: to } },
     orderBy: { operatingDate: 'asc' },
     include: {
       bookingDates: {

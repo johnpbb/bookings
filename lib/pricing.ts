@@ -13,6 +13,7 @@ interface PricedTour {
   pricePerPerson: number | null
   reefPriceSmall?: number
   reefPriceLarge?: number
+  charterPrice?: number
   seasonPrices?: SeasonPrice[]
 }
 
@@ -30,11 +31,25 @@ export function resolvePricePerPerson(tour: PricedTour, dates: string[]): number
 }
 
 export function calcBasePrice(tour: PricedTour, numGuests: number, dates: string[]): number {
+  if (tour.charterPrice) return tour.charterPrice
   if (tour.id === 'island_reef') {
     const ppp = numGuests >= 5 ? (tour.reefPriceLarge || 320) : (tour.reefPriceSmall || 400)
     return ppp * numGuests
   }
   return resolvePricePerPerson(tour, dates) * numGuests
+}
+
+// A fixed promo is per person, except on whole-boat charters, where it comes off once
+// (otherwise a guest could raise their discount just by entering a bigger group).
+export function calcPromoDiscount(
+  tour: PricedTour,
+  baseAmount: number,
+  numGuests: number,
+  discountType: string | undefined,
+  discount: number,
+): number {
+  if (discountType === 'percent') return Math.round(baseAmount * discount / 100 * 100) / 100
+  return discount * (tour.charterPrice ? 1 : numGuests)
 }
 
 // Lowest tier price (or flat price), for "from TOP X" display before dates are chosen.

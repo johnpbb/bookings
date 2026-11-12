@@ -25,7 +25,7 @@ export default async function AdminDashboard() {
     prisma.booking.count({ where: { status: 'pending_payment' } }),
     prisma.enquiry.count({ where: { status: 'new' } }),
     prisma.operatingDay.findUnique({
-      where: { operatingDate: today },
+      where: { calendar_operatingDate: { calendar: 'whale', operatingDate: today } },
     }),
   ])
 

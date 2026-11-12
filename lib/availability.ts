@@ -4,6 +4,7 @@
  */
 import { prisma } from './db'
 import { releaseExpiredHolds } from './booking'
+import { hasDeparted, meetsNotice, offseasonRule, type CalendarId } from './offseason'
 
 export interface DayAvailability {
   available: string[]  // dates with seats free (>4 seats remaining)
@@ -24,6 +25,7 @@ export async function getMonthAvailability(
 
   const rows = await prisma.operatingDay.findMany({
     where: {
+      calendar: 'whale',
       operatingDate: { gte: from, lte: to },
     },
     orderBy: { operatingDate: 'asc' },
@@ -41,6 +43,7 @@ export async function getUpcomingAvailability(days = 365): Promise<DayAvailabili
 
   const rows = await prisma.operatingDay.findMany({
     where: {
+      calendar: 'whale',
       operatingDate: { gte: from, lte: to },
     },
     orderBy: { operatingDate: 'asc' },
@@ -49,12 +52,52 @@ export async function getUpcomingAvailability(days = 365): Promise<DayAvailabili
   return classifyRows(rows)
 }
 
+// ── Island and game fishing availability ──────────────────────────────────────
+// Blocked dates, and dates inside the booking notice period, are "enquire" rather than
+// sold out: guests can still ask about them.
+
+export interface OffseasonAvailability extends DayAvailability {
+  enquire: string[]
+}
+
+export async function getOffseasonAvailability(tourId: string, days = 730): Promise<OffseasonAvailability> {
+  await releaseExpiredHolds()
+  const rule = offseasonRule(tourId)
+  const result: OffseasonAvailability = { available: [], partial: [], unavailable: [], partialCounts: {}, enquire: [] }
+  if (!rule) return result
+
+  const now = Date.now()
+  const rows = await prisma.operatingDay.findMany({
+    where: {
+      calendar: rule.calendar,
+      // Starts a day back to cover the time zone gap; hasDeparted below drops anything already gone
+      operatingDate: { gte: new Date(now - 24 * 60 * 60 * 1000), lte: new Date(now + days * 24 * 60 * 60 * 1000) },
+    },
+    orderBy: { operatingDate: 'asc' },
+  })
+
+  for (const row of rows) {
+    const d = row.operatingDate.toISOString().slice(0, 10)
+    if (hasDeparted(d, rule, now)) continue
+    if (row.isFullyBlocked || !meetsNotice(d, rule, now)) {
+      result.enquire.push(d)
+      continue
+    }
+    const free = row.totalSeats - row.seatsHeld - row.seatsBooked
+    if (rule.wholeBoat ? free < row.totalSeats : free <= 0) result.unavailable.push(d)
+    else if (!rule.wholeBoat && free <= 4) { result.partial.push(d); result.partialCounts[d] = free }
+    else result.available.push(d)
+  }
+
+  return result
+}
+
 // ── Seats remaining for a single date ─────────────────────────────────────────
 
 export async function getSeatsRemaining(date: string): Promise<number> {
   await releaseExpiredHolds()
   const row = await prisma.operatingDay.findUnique({
-    where: { operatingDate: new Date(date) },
+    where: { calendar_operatingDate: { calendar: 'whale', operatingDate: new Date(date) } },
   })
 
   if (!row || row.isFullyBlocked) return 0
@@ -65,12 +108,13 @@ export async function getSeatsRemaining(date: string): Promise<number> {
 // Used to cap the num_guests selector: guest count can't exceed the most
 // constrained date in their selection.
 
-export async function getMinSeatsAcrossDates(dates: string[]): Promise<number> {
+export async function getMinSeatsAcrossDates(dates: string[], calendar: CalendarId = 'whale'): Promise<number> {
   await releaseExpiredHolds()
   if (dates.length === 0) return 0
 
   const rows = await prisma.operatingDay.findMany({
     where: {
+      calendar,
       operatingDate: { in: dates.map((d) => new Date(d)) },
     },
   })
@@ -93,6 +137,7 @@ export async function getAdminRange(from: string, to: string) {
   await releaseExpiredHolds()
   return prisma.operatingDay.findMany({
     where: {
+      calendar: 'whale',
       operatingDate: { gte: new Date(from), lte: new Date(to) },
     },
     orderBy: { operatingDate: 'asc' },
@@ -167,7 +212,7 @@ export async function bulkGenerateSeasonDays(
 
     if (dayOfWeek !== 0 && !excluded.has(dateStr)) {
       await prisma.operatingDay.upsert({
-        where: { operatingDate: new Date(dateStr) },
+        where: { calendar_operatingDate: { calendar: 'whale', operatingDate: new Date(dateStr) } },
         update: {},
         create: {
           operatingDate: new Date(dateStr),

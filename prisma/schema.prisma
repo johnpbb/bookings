@@ -9,7 +9,8 @@ datasource db {
 
 model OperatingDay {
   id             Int           @id @default(autoincrement())
-  operatingDate  DateTime      @unique @map("operating_date") @db.Date
+  calendar       String        @default("whale") @db.VarChar(20)
+  operatingDate  DateTime      @map("operating_date") @db.Date
   totalSeats     Int           @default(16) @map("total_seats") @db.SmallInt
   seatsHeld      Int           @default(0) @map("seats_held") @db.SmallInt
   seatsBooked    Int           @default(0) @map("seats_booked") @db.SmallInt
@@ -19,6 +20,7 @@ model OperatingDay {
   createdAt      DateTime      @default(now()) @map("created_at")
   bookingDates   BookingDate[]
 
+  @@unique([calendar, operatingDate])
   @@map("tt_operating_days")
 }
 

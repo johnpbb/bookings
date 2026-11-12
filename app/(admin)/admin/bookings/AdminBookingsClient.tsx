@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { Booking, BookingDate } from '@prisma/client'
 import type { OnlineTour } from '@/lib/tours'
 import { calcBasePrice } from '@/lib/pricing'
+import { BOAT_LABELS, boatForTour } from '@/lib/offseason'
 
 type BookingWithDates = Booking & { bookingDates: BookingDate[] }
 type Surcharge = { enabled: boolean; type: 'fixed' | 'percentage'; amount: number }
@@ -42,7 +43,7 @@ export default function AdminBookingsClient({
   initialSearch?: string
 }) {
   const [bookings, setBookings] = useState(initialBookings)
-  const [filter, setFilter]     = useState({ status: '', tour: '' })
+  const [filter, setFilter]     = useState({ status: '', tour: '', boat: '' })
   const [selected, setSelected] = useState<BookingWithDates | null>(null)
   const [loading, setLoading]   = useState(false)
   const [msg, setMsg]           = useState('')
@@ -152,6 +153,7 @@ export default function AdminBookingsClient({
   const filtered = bookings.filter(b => {
     if (filter.status && b.status !== filter.status) return false
     if (filter.tour   && b.tourId !== filter.tour)   return false
+    if (filter.boat   && boatForTour(b.tourId) !== filter.boat) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -450,6 +452,11 @@ export default function AdminBookingsClient({
           style={{ padding: '8px 14px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.88rem' }}>
           <option value="">All tours</option>
           {Object.entries(tourNames).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <select value={filter.boat} onChange={e => setFilter(f => ({ ...f, boat: e.target.value }))}
+          style={{ padding: '8px 14px', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: '0.88rem' }}>
+          <option value="">All boats</option>
+          {Object.entries(BOAT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', alignSelf: 'center' }}>
           {filtered.length} result{filtered.length !== 1 ? 's' : ''}

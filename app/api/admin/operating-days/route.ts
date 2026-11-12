@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (action === 'add_date') {
     const { date, totalSeats } = body
     const day = await prisma.operatingDay.upsert({
-      where: { operatingDate: new Date(date) },
+      where: { calendar_operatingDate: { calendar: 'whale', operatingDate: new Date(date) } },
       update: { totalSeats: totalSeats ?? 16 },
       create: { operatingDate: new Date(date), totalSeats: totalSeats ?? 16 },
     })
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (action === 'set_charter') {
     const { date, charterVessel, isFullyBlocked } = body
     const day = await prisma.operatingDay.update({
-      where: { operatingDate: new Date(date) },
+      where: { calendar_operatingDate: { calendar: 'whale', operatingDate: new Date(date) } },
       data: {
         charterVessel: charterVessel ?? null,
         isFullyBlocked: Boolean(isFullyBlocked),
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
   if (action === 'delete_date') {
     const { date } = body
-    await prisma.operatingDay.delete({ where: { operatingDate: new Date(date) } })
+    await prisma.operatingDay.delete({ where: { calendar_operatingDate: { calendar: 'whale', operatingDate: new Date(date) } } })
     return NextResponse.json({ success: true })
   }
 

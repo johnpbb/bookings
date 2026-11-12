@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { PromoCode } from '@prisma/client'
 
-const TOURS = ['whale_day_trip', 'whale_3day', 'whale_5day', 'island_reef']
+const TOURS = ['whale_day_trip', 'whale_3day', 'whale_5day', 'island_reef', 'island_charter', 'game_fishing']
 const BLANK: Partial<PromoCode> = {
   code: '', discountType: 'fixed', discountValue: 0 as any,
   applicableTours: null, validDateStart: null, validDateEnd: null,

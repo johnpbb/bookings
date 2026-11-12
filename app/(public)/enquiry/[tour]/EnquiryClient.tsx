@@ -10,7 +10,7 @@ function isWhaleSeasonNow(): boolean {
   return m >= 7 && m <= 10
 }
 
-export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
+export default function EnquiryClient({ tour, initialDate = '' }: { tour: EnquiryTour; initialDate?: string }) {
   const router = useRouter()
   const tourId = tour.id
 
@@ -18,7 +18,7 @@ export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
   const [email, setEmail]         = useState('')
   const [phone, setPhone]         = useState('')
   const [groupSize, setGroupSize] = useState('')
-  const [dates, setDates]         = useState('')
+  const [dates, setDates]         = useState(initialDate)
   const [message, setMessage]     = useState('')
   const [whatsapp, setWhatsapp]         = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
@@ -78,7 +78,7 @@ export default function EnquiryClient({ tour }: { tour: EnquiryTour }) {
       <div style={{ marginBottom: 32 }}>
         <a href="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>← All tours</a>
         <h1 style={{ marginTop: 8 }}>{tour.emoji} {tour.name}</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>{tourId === 'island_charter' ? 'TOP$ 2,400 (up to 10 people)' : tourId === 'game_fishing' ? 'TOP$ 1,600 (up to 4 people)' : 'Pricing on application'}</p>
+        <p style={{ color: 'var(--text-secondary)' }}>{tourId === 'island_charter' ? 'TOP$ 2,500 (up to 10 people)' : tourId === 'game_fishing' ? 'TOP$ 1,700 (best for up to 4 people)' : tourId === 'island_reef' ? 'TOP$ 400 per person (5+ guests: TOP$ 320 per person)' : 'Pricing on application'}</p>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}

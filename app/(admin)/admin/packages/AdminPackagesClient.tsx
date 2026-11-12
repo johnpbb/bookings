@@ -286,6 +286,12 @@ export default function AdminPackagesClient({
                       <input value={t.reefPriceLarge || 320} type="number"
                         onChange={e => updateOnline(idx, { reefPriceLarge: parseInt(e.target.value) || 0 })} />
                     </div>
+                  ) : t.charterPrice != null ? (
+                    <div className="form-group">
+                      <label>Whole Boat Price (TOP$)</label>
+                      <input type="number" value={t.charterPrice || 0}
+                        onChange={e => updateOnline(idx, { charterPrice: parseInt(e.target.value) || 0 })} />
+                    </div>
                   ) : (
                     <div className="form-group">
                       <label>Base Price per Person (TOP$)</label>
@@ -295,7 +301,7 @@ export default function AdminPackagesClient({
                   )}
                 </div>
 
-                {t.id !== 'island_reef' && (
+                {t.id !== 'island_reef' && t.charterPrice == null && (
                   <div className="form-group">
                     <label>Season prices (override the base price when the first selected date falls in a range)</label>
                     {(t.seasonPrices ?? []).map((sp, si) => {

@@ -17,7 +17,7 @@ async function main() {
 
   for (const date of dates) {
     await prisma.operatingDay.upsert({
-      where: { operatingDate: date.operatingDate },
+      where: { calendar_operatingDate: { calendar: 'whale', operatingDate: date.operatingDate } },
       update: {},
       create: date,
     })

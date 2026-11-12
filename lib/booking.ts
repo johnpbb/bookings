@@ -10,7 +10,8 @@ import { processEgateRefund, verifyPaymentOrder } from './egate'
 import type { Booking, BookingDate, Prisma } from '@prisma/client'
 
 import { getOnlineTour } from './tours'
-import { calcBasePrice } from './pricing'
+import { calcBasePrice, calcPromoDiscount } from './pricing'
+import { calendarForTour, meetsNotice, offseasonRule, seatsToReserve } from './offseason'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -247,6 +248,18 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     return { success: false, error: 'At least 1 guest is required.' }
   }
 
+  // Island and fishing trips: group size and booking notice
+  const rule = offseasonRule(args.tourId)
+  if (rule) {
+    if (args.numGuests > rule.capacity) {
+      return { success: false, error: `This trip takes up to ${rule.capacity} guests online. Please send us an enquiry for a larger group.` }
+    }
+    const tooSoon = dates.find((d) => !meetsNotice(d, rule))
+    if (tooSoon) {
+      return { success: false, error: 'That date is too close to book online. Please send us an enquiry instead.', unavailableDates: [tooSoon] }
+    }
+  }
+
   // Rate limit
   const ip = args.ipAddress ?? 'unknown'
   if (!checkRateLimit(ip)) {
@@ -309,9 +322,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     if (!promo.valid) {
       return { success: false, error: promo.error }
     }
-    promoDiscount = promo.discountType === 'percent'
-      ? Math.round(baseAmount * promo.discount! / 100 * 100) / 100
-      : promo.discount! * args.numGuests // fixed discounts are per person
+    promoDiscount = calcPromoDiscount(tour, baseAmount, args.numGuests, promo.discountType, promo.discount!)
     promoCodeUsed = promo.code!
   }
 
@@ -350,7 +361,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
     }>>`
       SELECT id, operating_date, total_seats, seats_held, seats_booked, is_fully_blocked
       FROM tt_operating_days
-      WHERE operating_date = ANY(${dates}::date[])
+      WHERE calendar = ${calendarForTour(args.tourId)} AND operating_date = ANY(${dates}::date[])
       ORDER BY id
       FOR UPDATE
     `
@@ -364,7 +375,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
       }
 
       const available = row.total_seats - row.seats_held - row.seats_booked
-      if (available < args.numGuests) {
+      if (available < (rule?.wholeBoat ? row.total_seats : args.numGuests)) {
         unavailable.push(date)
       }
     }
@@ -402,7 +413,7 @@ export async function placeHold(args: PlaceHoldArgs): Promise<PlaceHoldResult> {
           bookingId: booking.id,
           operatingDayId: opDay.id,
           tourDate: new Date(date),
-          seatsReserved: args.numGuests,
+          seatsReserved: rule?.wholeBoat ? opDay.total_seats : args.numGuests,
         },
       })
     }
@@ -669,9 +680,13 @@ export async function createManualBooking(args: {
       for (const date of args.dates) {
         const dateObj = new Date(date)
         const opDay = await tx.operatingDay.upsert({
-          where: { operatingDate: dateObj },
+          where: { calendar_operatingDate: { calendar: calendarForTour(args.tourId), operatingDate: dateObj } },
           update: {},
-          create: { operatingDate: dateObj, totalSeats: 16 },
+          create: {
+            calendar: calendarForTour(args.tourId),
+            operatingDate: dateObj,
+            totalSeats: offseasonRule(args.tourId)?.capacity ?? 16,
+          },
         })
         opDayIds.push(opDay.id)
 
@@ -680,7 +695,7 @@ export async function createManualBooking(args: {
             bookingId: booking.id,
             operatingDayId: opDay.id,
             tourDate: dateObj,
-            seatsReserved: args.numGuests,
+            seatsReserved: seatsToReserve(args.tourId, args.numGuests),
           },
         })
       }

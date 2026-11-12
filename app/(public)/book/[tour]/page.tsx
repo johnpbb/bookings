@@ -1,6 +1,8 @@
 import { getOnlineTour } from '@/lib/tours'
 import { prisma } from '@/lib/db'
 import { WHALE_CONTENT_KEYS, isWhaleTour, resolveWhaleForm } from '@/lib/whaleContent'
+import { offseasonRule } from '@/lib/offseason'
+import { OFFSEASON_ACK_KEY, parseOffseasonAcks } from '@/lib/offseasonContent'
 import BookClient from './BookClient'
 import { redirect } from 'next/navigation'
 
@@ -12,7 +14,7 @@ export default async function BookingPage({ params }: { params: Promise<{ tour: 
   if (!tour) redirect('/')
 
   const settings = await prisma.setting.findMany({
-    where: { key: { in: ['payment_surcharge_enabled', 'payment_surcharge_label', 'payment_surcharge_type', 'payment_surcharge_amount', ...WHALE_CONTENT_KEYS] } }
+    where: { key: { in: ['payment_surcharge_enabled', 'payment_surcharge_label', 'payment_surcharge_type', 'payment_surcharge_amount', OFFSEASON_ACK_KEY, ...WHALE_CONTENT_KEYS] } }
   })
   const getSetting = (key: string) => settings.find(s => s.key === key)?.value ?? ''
 
@@ -27,5 +29,9 @@ export default async function BookingPage({ params }: { params: Promise<{ tour: 
     ? resolveWhaleForm(key => settings.find(s => s.key === key)?.value)
     : undefined
 
-  return <BookClient tour={tour} surcharge={surcharge} whaleForm={whaleForm} />
+  const offseasonAcks = offseasonRule(tour.id)
+    ? parseOffseasonAcks(settings.find(s => s.key === OFFSEASON_ACK_KEY)?.value)
+    : undefined
+
+  return <BookClient tour={tour} surcharge={surcharge} whaleForm={whaleForm} offseasonAcks={offseasonAcks} />
 }

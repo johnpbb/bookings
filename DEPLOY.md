@@ -83,3 +83,19 @@ git pull origin main && npm install && npm run build && /home/tahi_bookings/.npm
 | Build fails with TypeScript error | Fix the error locally, commit, push, then re-run Step 4 |
 | App shows old version after restart | Clear browser cache or check `pm2 list` — status must be `online` |
 | `pm2 restart` shows version mismatch warning | Safe to ignore — app still restarts correctly |
+
+## Database changes
+
+The deploy runs the island & fishing calendar script on the server before building
+(`npx prisma db execute` in `.github/workflows`), using the server's `.env`
+`DATABASE_URL`. The script is safe to re-run on every deploy. If it fails, the deploy
+stops before the build and the previous version keeps running.
+
+To run it by hand on the server instead:
+
+```bash
+npx prisma db execute --file prisma/migrations/20261110000000_offseason_calendars/migration.sql --schema prisma/schema.prisma
+```
+
+The script sets up the Island & Fishing calendars with dates open Monday to Saturday
+through 2028.

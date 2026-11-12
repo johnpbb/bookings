@@ -54,6 +54,8 @@ jobs:
             echo "NEXT_DEPLOYMENT_ID=$DEPLOY_SHA" > .env.production.local
             npm install
             npx prisma generate
+            # Database changes for this release. Safe to re-run; stops the deploy (old version keeps running) if it fails.
+            npx prisma db execute --file prisma/migrations/20261110000000_offseason_calendars/migration.sql --schema prisma/schema.prisma || exit 1
             npm run build
             PM2=/home/tahi_bookings/.npm/_npx/5f7878ce38f1eb13/node_modules/pm2/bin/pm2
             # If the PM2 daemon died (e.g. server restart) there is nothing to reload,

@@ -5,20 +5,23 @@ import { useParams, useRouter } from 'next/navigation'
 import Script from 'next/script'
 
 import { OnlineTour } from '@/lib/tours'
-import { calcBasePrice, findSeasonPrice, resolvePricePerPerson } from '@/lib/pricing'
+import { calcBasePrice, calcPromoDiscount, findSeasonPrice, resolvePricePerPerson } from '@/lib/pricing'
+import { offseasonRule } from '@/lib/offseason'
 import type { WhaleFormContent } from '@/lib/whaleContent'
 
 type PromoResult = { valid: boolean; discount?: number; discountType?: string; code?: string; error?: string }
 
 type Surcharge = { enabled: boolean; label: string; type: 'fixed' | 'percentage'; amount: number }
 
-export default function BookClient({ tour, surcharge, whaleForm }: { tour: OnlineTour; surcharge?: Surcharge; whaleForm?: WhaleFormContent }) {
+export default function BookClient({ tour, surcharge, whaleForm, offseasonAcks }: { tour: OnlineTour; surcharge?: Surcharge; whaleForm?: WhaleFormContent; offseasonAcks?: string[] }) {
   const router = useRouter()
   const tourId = tour.id
+  const offseason = offseasonRule(tour.id)
 
   const [step, setStep] = useState(0)
   const [selectedDates, setSelectedDates] = useState<string[]>([])
-  const [availability, setAvailability] = useState<{ available: string[]; partial: string[]; unavailable: string[]; partialCounts: Record<string, number> } | null>(null)
+  const [availability, setAvailability] = useState<{ available: string[]; partial: string[]; unavailable: string[]; partialCounts: Record<string, number>; enquire?: string[] } | null>(null)
+  const [enquireDate, setEnquireDate] = useState('')
   const [maxSeats, setMaxSeats] = useState<number>(16)
 
   // Step 2: guest details
@@ -51,11 +54,11 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
 
   // ── Load availability for Flatpickr ──────────────────────────────────────
   useEffect(() => {
-    fetch('/api/availability?mode=upcoming&days=730')
+    fetch(`/api/availability?mode=upcoming&days=730&tour=${tourId}`)
       .then(r => r.json())
       .then(setAvailability)
       .catch(console.error)
-  }, [])
+  }, [tourId])
 
   // ── Flatpickr init ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -63,7 +66,8 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
     const fp = (window as any).flatpickr
     if (!fp) return
 
-    const enabledDates = [...(availability.available ?? []), ...(availability.partial ?? [])]
+    const enquireSet  = new Set(availability.enquire ?? [])
+    const enabledDates = [...(availability.available ?? []), ...(availability.partial ?? []), ...enquireSet]
 
     const availSet    = new Set(availability.available ?? [])
     const partialSet  = new Set(availability.partial ?? [])
@@ -89,6 +93,9 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
             badge.textContent = String(count)
             dayElem.appendChild(badge)
           }
+        } else if (enquireSet.has(dateStr)) {
+          dayElem.classList.add('day-enquire')
+          dayElem.title = 'Enquire about this date'
         } else if (availSet.has(dateStr)) {
           dayElem.classList.add('day-available')
         } else if (fullSet.has(dateStr)) {
@@ -97,6 +104,14 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
       },
       onChange(dates: Date[], dateStr: string, fpInstance: any) {
         const strs = dates.map(d => fpInstance.formatDate(d, 'Y-m-d'))
+        if (strs[0] && enquireSet.has(strs[0])) {
+          // Not open for online booking, but not sold out either: offer an enquiry
+          setEnquireDate(strs[0])
+          setSelectedDates([])
+          fpInstance.clear(false)
+          return
+        }
+        setEnquireDate('')
         setSelectedDates([...strs].sort())
         setError('')
 
@@ -107,7 +122,7 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
 
         // Fetch actual min seats across selected dates to cap the guest selector
         if (strs.length > 0) {
-          fetch(`/api/availability?mode=min-seats&dates=${strs.join(',')}`)
+          fetch(`/api/availability?mode=min-seats&dates=${strs.join(',')}&tour=${tourId}`)
             .then(r => r.json())
             .then(data => {
               const max = data.minSeats ?? 16
@@ -122,7 +137,7 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
     })
 
     return () => { try { instance.destroy() } catch { /* ignore */ } }
-  }, [step, availability, tour.dateCount])
+  }, [step, availability, tour.dateCount, tourId])
 
   // ── Countdown timer ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -153,9 +168,7 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
   const baseAmount = calcBasePrice(tour, numGuests, selectedDates)
   const seasonLabel = findSeasonPrice(tour, selectedDates)?.label
   const promoDiscount = promoResult?.valid
-    ? promoResult.discountType === 'percent'
-      ? Math.round(baseAmount * (promoResult.discount ?? 0) / 100 * 100) / 100
-      : (promoResult.discount ?? 0) * numGuests // fixed discounts are per person
+    ? calcPromoDiscount(tour, baseAmount, numGuests, promoResult.discountType, promoResult.discount ?? 0)
     : 0
   const subtotal = Math.max(0, baseAmount - promoDiscount)
   const surchargeAmount = surcharge?.enabled && surcharge.amount > 0
@@ -178,7 +191,9 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
     if (step === 1) {
       if (!guestName.trim()) { setError('Please enter your name.'); return }
       if (!guestEmail.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { setError('Please enter a valid email address.'); return }
-      if (whaleForm) {
+      if (offseasonAcks) {
+        if (offseasonAcks.some((_, i) => !ackChecked[i])) { setError('Please tick every box to continue.'); return }
+      } else if (whaleForm) {
         if (!specialReqs.trim()) { setError('Please enter the details for every guest to continue.'); return }
         if (whaleForm.ackItems.some((_, i) => !ackChecked[i])) { setError('Please tick every box to continue.'); return }
       } else {
@@ -220,7 +235,7 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
           guestPhone: guestPhone.trim(),
           specialRequests: [
             specialReqs.trim(),
-            datesInTonga.trim() ? `Dates in Tonga: ${datesInTonga.trim()}` : '',
+            datesInTonga.trim() ? `${offseason ? 'Alternate dates' : 'Dates in Tonga'}: ${datesInTonga.trim()}` : '',
             whatsapp ? `WhatsApp linked: ${whatsapp}${whatsapp === 'No' && whatsappNumber ? ` (${whatsappNumber})` : ''}` : '',
           ].filter(Boolean).join('\n\n'),
           promoCode: promoResult?.valid ? promoInput.trim() : undefined,
@@ -353,10 +368,19 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
             <span className="avail-pill open">● Available</span>
             <span className="avail-pill partial">● Filling up</span>
             <span className="avail-pill full">● Full / unavailable</span>
+            {offseason && <span className="avail-pill enquire">● Enquire</span>}
           </div>
           <input id="date-picker" placeholder="Click to choose dates..." readOnly
             style={{ width: '100%', padding: '12px 16px', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', cursor: 'pointer', background: 'var(--foam)' }}
           />
+          {enquireDate && (
+            <div className="alert alert-info" style={{ marginTop: 16, marginBottom: 0, display: 'block' }}>
+              <strong>{new Date(enquireDate).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'long', month: 'long', day: 'numeric' })}</strong>{' '}isn&apos;t open for online booking, but it isn&apos;t sold out. Ask us about this date and we&apos;ll see what we can do.
+              <div style={{ marginTop: 12 }}>
+                <a className="btn btn-primary" href={`/enquiry/${tourId}?date=${enquireDate}`}>Enquire about this date →</a>
+              </div>
+            </div>
+          )}
           {selectedDates.length > 0 && (
             <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--foam)', borderRadius: 'var(--radius-md)', fontSize: '0.88rem' }}>
               <strong>Selected:</strong> {selectedDates.map(d => new Date(d).toLocaleDateString('en-NZ', { timeZone: 'Pacific/Tongatapu', weekday: 'short', month: 'short', day: 'numeric' })).join(', ')}
@@ -405,9 +429,9 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Dates in Tongatapu</label>
+              <label>{offseason ? 'Alternate Dates' : 'Dates in Tongatapu'}</label>
               <input value={datesInTonga} onChange={e => setDatesInTonga(e.target.value)}
-                placeholder="e.g. 1 Aug – 14 Aug"
+                placeholder={offseason ? 'What other dates are you available for this trip?' : 'e.g. 1 Aug – 14 Aug'}
                 title="Helps us offer alternate days in the event of a weather cancel" />
             </div>
             <div className="form-group">
@@ -426,7 +450,23 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
                 placeholder="e.g. +64 21 234 5678" />
             </div>
           )}
-          {whaleForm ? (
+          {offseasonAcks ? (
+            <>
+              <div className="form-group">
+                <label htmlFor="comments">Comments</label>
+                <textarea id="comments" value={specialReqs} onChange={e => setSpecialReqs(e.target.value)} rows={4} />
+              </div>
+              {offseasonAcks.map((item, i) => (
+                <div className="checkbox-group" key={i} style={{ marginBottom: i === offseasonAcks.length - 1 ? 24 : 10 }}>
+                  <input type="checkbox" id={`ack-${i}`} checked={!!ackChecked[i]}
+                    onChange={e => setAckChecked(prev => ({ ...prev, [i]: e.target.checked }))} />
+                  <label htmlFor={`ack-${i}`} className="editable-copy"
+                    style={{ fontSize: '0.88rem', fontWeight: 'normal', textTransform: 'none', letterSpacing: 0 }}
+                    dangerouslySetInnerHTML={{ __html: item }} />
+                </div>
+              ))}
+            </>
+          ) : whaleForm ? (
             <>
               <div className="form-group">
                 <label htmlFor="guest-details">{whaleForm.guestHeading} *</label>
@@ -523,7 +563,7 @@ export default function BookClient({ tour, surcharge, whaleForm }: { tour: Onlin
           {/* Price summary */}
           <div className="price-summary">
             <div className="price-row">
-              <span>{numGuests} guest{numGuests > 1 ? 's' : ''} × {tour.id === 'island_reef' ? `TOP$ ${numGuests >= 5 ? (tour.reefPriceLarge || 320) : (tour.reefPriceSmall || 400)}pp` : `TOP$ ${resolvePricePerPerson(tour, selectedDates)}${seasonLabel ? ` (${seasonLabel})` : ''}`}</span>
+              <span>{offseason?.wholeBoat ? `Whole boat, ${numGuests} guest${numGuests > 1 ? 's' : ''}` : <>{numGuests} guest{numGuests > 1 ? 's' : ''} × {tour.id === 'island_reef' ? `TOP$ ${numGuests >= 5 ? (tour.reefPriceLarge || 320) : (tour.reefPriceSmall || 400)}pp` : `TOP$ ${resolvePricePerPerson(tour, selectedDates)}${seasonLabel ? ` (${seasonLabel})` : ''}`}</>}</span>
               <span>TOP$ {baseAmount.toFixed(2)}</span>
             </div>
             {promoResult?.valid && (

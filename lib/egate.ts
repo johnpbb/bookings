@@ -270,7 +270,9 @@ function friendlyTourName(tourId: string): string {
     whale_day_trip: 'Whale Watch Day Trip',
     whale_3day: 'Whale Watch 3-Day Special',
     whale_5day: 'Whale Watch 5-Day Special',
-    island_reef: 'Outer Reef Excursion',
+    island_reef: 'Reef & Outer Island Adventure',
+    island_charter: 'Reef & Outer Island Adventure - Private Charter',
+    game_fishing: 'Game Fishing Charter',
   }
   return names[tourId] ?? tourId
 }

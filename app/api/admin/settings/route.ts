@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { prisma } from '@/lib/db'
 import { WHALE_CONTENT_KEYS } from '@/lib/whaleContent'
+import { OFFSEASON_CONTENT_KEYS } from '@/lib/offseasonContent'
 
 const PUBLIC_KEYS = [
   'hold_minutes', 'non_refundable_fee', 'whale_season_start', 'whale_season_end',
@@ -13,6 +14,7 @@ const PUBLIC_KEYS = [
   'payment_surcharge_enabled', 'payment_surcharge_label',
   'payment_surcharge_type', 'payment_surcharge_amount',
   ...WHALE_CONTENT_KEYS,
+  ...OFFSEASON_CONTENT_KEYS,
 ]
 
 // GET /api/admin/settings

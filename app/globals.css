@@ -741,6 +741,7 @@ h3 {
 }
 
 .flatpickr-day.day-available::after,
+.flatpickr-day.day-enquire::after,
 .flatpickr-day.day-unavailable::after {
   content: '';
   display: block;
@@ -755,6 +756,9 @@ h3 {
 
 .flatpickr-day.day-available::after   { background: var(--success); }
 .flatpickr-day.day-unavailable::after { background: var(--error); }
+.flatpickr-day.day-enquire::after { background: var(--ocean-bright); }
+.flatpickr-day.day-enquire { color: var(--ocean-bright); font-style: italic; }
+.avail-pill.enquire { color: var(--ocean-bright); background: var(--foam); }
 
 .day-count {
   display: block;

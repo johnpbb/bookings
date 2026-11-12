@@ -24,6 +24,7 @@ export interface OnlineTour {
   seasonPrices?: SeasonPrice[]
   reefPriceSmall?: number
   reefPriceLarge?: number
+  charterPrice?: number
 }
 
 export interface EnquiryTour {
@@ -97,7 +98,7 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
   },
   {
     id: 'island_reef',
-    name: 'Outer Reef Excursion',
+    name: 'Reef & Outer Island Adventure',
     emoji: '🪸',
     tagline: 'Uninhabited island · Snorkel · Lunch',
     desc: 'Discover a pristine outer reef island, snorkel crystal-clear waters, and enjoy a locally sourced light lunch. Volume discounts apply.',
@@ -111,6 +112,36 @@ export const DEFAULT_ONLINE_TOURS: OnlineTour[] = [
     reefPriceSmall: 400,
     reefPriceLarge: 320,
   },
+  {
+    id: 'island_charter',
+    name: 'Reef & Outer Island Adventure - Private Charter',
+    emoji: '🌴',
+    tagline: 'Private 5-hour island experience',
+    desc: 'The whole boat for your group, up to 10 people, with snorkelling, lunch and a picture-perfect outer reef island.',
+    priceLabel: 'TOP$ 2,500',
+    perNote: 'whole boat, up to 10 people',
+    badge: null,
+    type: 'book',
+    isActive: true,
+    dateCount: 1,
+    pricePerPerson: null,
+    charterPrice: 2500,
+  },
+  {
+    id: 'game_fishing',
+    name: 'Game Fishing Charter',
+    emoji: '🎣',
+    tagline: 'Head out wide for 4 hours of fishing',
+    desc: 'The whole boat for 4 hours from 6am, all gear supplied. Best for up to 4 people.',
+    priceLabel: 'TOP$ 1,700',
+    perNote: 'whole boat, best for up to 4 people',
+    badge: null,
+    type: 'book',
+    isActive: true,
+    dateCount: 1,
+    pricePerPerson: null,
+    charterPrice: 1700,
+  },
 ]
 
 export const DEFAULT_ENQUIRY_TOURS: EnquiryTour[] = [
@@ -123,33 +154,49 @@ export const DEFAULT_ENQUIRY_TOURS: EnquiryTour[] = [
     type: 'enquiry',
     isActive: true,
   },
-  {
-    id: 'island_charter',
-    name: 'Island Exclusive Charter',
-    emoji: '🌴',
-    tagline: 'Private 5-hour island experience',
-    desc: 'Exclusive charter for up to 10 people. TOP$ 2,400 includes snorkelling, lunch, and a picture-perfect outer reef island.',
-    type: 'enquiry',
-    isActive: true,
-  },
-  {
-    id: 'game_fishing',
-    name: 'Game Fishing Charter',
-    emoji: '🎣',
-    tagline: 'Head out wide for 4 hours of fishing',
-    desc: 'Up to 4 people. TOP$ 1,600. All gear supplied. Can sometimes arrange shared bookings — ask in your enquiry.',
-    type: 'enquiry',
-    isActive: true,
-  },
 ]
+
+const OFFSEASON_UPGRADE_KEY = 'offseason_tours_upgraded'
+const NOW_BOOKABLE = ['island_charter', 'game_fishing']
+
+// Saved package lists predate online charters. Runs once, so staff can still move a
+// charter back to enquiry-only on the Packages screen afterwards.
+function upgradeSavedTours(online: OnlineTour[], enquiry: EnquiryTour[]) {
+  const nextOnline = online.map((t) =>
+    t.id === 'island_reef' && t.name === 'Outer Reef Excursion' ? { ...t, name: 'Reef & Outer Island Adventure' } : t,
+  )
+  for (const id of NOW_BOOKABLE) {
+    if (nextOnline.some((t) => t.id === id)) continue
+    const preset = DEFAULT_ONLINE_TOURS.find((t) => t.id === id)!
+    const saved = enquiry.find((t) => t.id === id)
+    nextOnline.push({ ...preset, image: saved?.image ?? preset.image, isActive: saved?.isActive ?? true })
+  }
+  return { online: nextOnline, enquiry: enquiry.filter((t) => !NOW_BOOKABLE.includes(t.id)) }
+}
 
 export async function getToursConfig(): Promise<{ online: OnlineTour[]; enquiry: EnquiryTour[] }> {
   try {
-    const s1 = await prisma.setting.findUnique({ where: { key: 'online_tours_config' } })
-    const s2 = await prisma.setting.findUnique({ where: { key: 'enquiry_tours_config' } })
+    const rows = await prisma.setting.findMany({
+      where: { key: { in: ['online_tours_config', 'enquiry_tours_config', OFFSEASON_UPGRADE_KEY] } },
+    })
+    const raw = (key: string) => rows.find((r) => r.key === key)?.value
+    const s1 = raw('online_tours_config')
+    const s2 = raw('enquiry_tours_config')
 
-    const online = s1?.value ? JSON.parse(s1.value) : DEFAULT_ONLINE_TOURS
-    const enquiry = s2?.value ? JSON.parse(s2.value) : DEFAULT_ENQUIRY_TOURS
+    const online: OnlineTour[] = s1 ? JSON.parse(s1) : DEFAULT_ONLINE_TOURS
+    const enquiry: EnquiryTour[] = s2 ? JSON.parse(s2) : DEFAULT_ENQUIRY_TOURS
+
+    if ((s1 || s2) && !raw(OFFSEASON_UPGRADE_KEY)) {
+      const upgraded = upgradeSavedTours(online, enquiry)
+      const save = (key: string, value: string) =>
+        prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } })
+      await prisma.$transaction([
+        save('online_tours_config', JSON.stringify(upgraded.online)),
+        save('enquiry_tours_config', JSON.stringify(upgraded.enquiry)),
+        save(OFFSEASON_UPGRADE_KEY, 'true'),
+      ])
+      return upgraded
+    }
 
     return { online, enquiry }
   } catch (err) {
