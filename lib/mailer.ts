@@ -158,7 +158,7 @@ async function sendPaymentReceipt(booking: Booking) {
     <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e">
       <div style="background:#0a4f6e;padding:32px 24px;text-align:center">
         <div style="color:#fff;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;opacity:0.8">Tahi Tonga</div>
-        <h1 style="color:#fff;margin:0;font-size:22px">Payment Received</h1>
+        <h1 style="color:#fff;margin:0;font-size:22px">Payment Confirmation</h1>
       </div>
       <div style="padding:32px 24px;background:#fff">
         <p>Hi ${escapeHtml(booking.guestName)},</p>
@@ -181,9 +181,9 @@ async function sendPaymentReceipt(booking: Booking) {
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: booking.guestEmail,
-    subject: `Payment Receipt — Tahi Tonga · ${booking.reference}`,
+    subject: `Payment Confirmation - Tahi Tonga · ${booking.reference}`,
     html,
-    text: `Payment Received\n\nReference: ${booking.reference}\n${booking.specialRequests ? `Payment for: ${booking.specialRequests}\n` : ''}Total paid: ${formatTop(booking.amountTop)}\n\n${emailHtmlToText(body)}`,
+    text: `Payment Confirmation\n\nReference: ${booking.reference}\n${booking.specialRequests ? `Payment for: ${booking.specialRequests}\n` : ''}Total paid: ${formatTop(booking.amountTop)}\n\n${emailHtmlToText(body)}`,
   })
 }
 

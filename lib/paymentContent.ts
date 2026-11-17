@@ -17,7 +17,10 @@ export function isPayment(tourId: string): boolean {
 }
 
 export const DEFAULT_PAYMENT_EMAIL_BODY = [
-  '<p>Thank you for your payment to Tahi Tonga. Please keep this email as your receipt.</p>',
-  '<p>If you have any questions about this payment, please get in touch at <a href="mailto:info@tahitonga.com">info@tahitonga.com</a>. We’re always happy to help!</p>',
-  '<p>Mālō ’aupito,<br>The Tahi Tonga Team</p>',
+  '<p>Thank you for making your payment to Tahi Tonga.</p>',
+  '<p>Please get in touch if you have any questions!</p>',
+  '<p>Visit <a href="https://tahitonga.com/terms-conditions/">https://tahitonga.com/terms-conditions/</a> for booking Terms and Conditions<br>',
+  'Visit <a href="https://tahitonga.com/faqs/">https://tahitonga.com/faqs/</a> for Frequently Asked Questions</p>',
+  '<p>Mālō ’aupito – The Tahi Tonga Team<br>',
+  'WhatsApp: <a href="https://wa.me/6767320810">+676 7320810</a></p>',
 ].join('')
