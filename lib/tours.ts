@@ -157,6 +157,7 @@ export const DEFAULT_ENQUIRY_TOURS: EnquiryTour[] = [
 ]
 
 const OFFSEASON_UPGRADE_KEY = 'offseason_tours_upgraded'
+const LEGACY_REEF_ID = 'island_time_outer_reef_excursion'
 const NOW_BOOKABLE = ['island_charter', 'game_fishing']
 
 // Saved package lists predate online charters. Runs once, so staff can still move a
@@ -185,6 +186,24 @@ export async function getToursConfig(): Promise<{ online: OnlineTour[]; enquiry:
 
     const online: OnlineTour[] = s1 ? JSON.parse(s1) : DEFAULT_ONLINE_TOURS
     const enquiry: EnquiryTour[] = s2 ? JSON.parse(s2) : DEFAULT_ENQUIRY_TOURS
+
+    // The island trip used to be an enquiry package with its own ID. Staff moved it to online
+    // bookings under that old ID, which left it on the whale calendar with no 5+ pricing.
+    // Give it the reef trip's ID and pricing wherever it turns up, keeping its name, text and photo.
+    const legacyReef = online.findIndex((t) => t.id === LEGACY_REEF_ID)
+    if (legacyReef >= 0 && !online.some((t) => t.id === 'island_reef')) {
+      const t = online[legacyReef]
+      online[legacyReef] = {
+        ...t,
+        id: 'island_reef',
+        type: 'book',
+        dateCount: 1,
+        pricePerPerson: null,
+        reefPriceSmall: t.reefPriceSmall || 400,
+        reefPriceLarge: t.reefPriceLarge || 320,
+      }
+      await prisma.setting.update({ where: { key: 'online_tours_config' }, data: { value: JSON.stringify(online) } })
+    }
 
     if ((s1 || s2) && !raw(OFFSEASON_UPGRADE_KEY)) {
       const upgraded = upgradeSavedTours(online, enquiry)

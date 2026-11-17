@@ -75,8 +75,11 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
 
   async function save() {
     setLoading(true); setMsg('')
+    // The package lists belong to the Packages screen. Sending this page's copy would overwrite
+    // any package changes made since this page was opened.
+    const { online_tours_config: _online, enquiry_tours_config: _enquiry, ...settingsOnly } = s
     await fetch('/api/admin/settings', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settingsOnly),
     })
     setMsg('✓ Settings saved.')
     setLoading(false)
