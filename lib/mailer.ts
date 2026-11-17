@@ -11,6 +11,7 @@ import { getOnlineTour, getEnquiryTour, getToursConfig } from './tours'
 import { DEFAULT_WHALE_EMAIL_BODY, emailHtmlToText, isBlankHtml, isWhaleTour, styleEmailHtml } from './whaleContent'
 import { offseasonRule } from './offseason'
 import { DEFAULT_OFFSEASON_EMAILS, offseasonEmailKey } from './offseasonContent'
+import { DEFAULT_PAYMENT_EMAIL_BODY, PAYMENT_EMAIL_KEY, PAYMENT_TOUR_NAME, isPayment } from './paymentContent'
 
 // ── Transport ────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ const FROM_ADDRESS = `"Tahi Tonga" <${process.env.SMTP_FROM ?? 'no-reply@tahiton
 // ── Friendly tour names ───────────────────────────────────────────────────────
 
 async function tourName(id: string) {
+  if (isPayment(id)) return PAYMENT_TOUR_NAME
   const onlineTour = await getOnlineTour(id)
   if (onlineTour) return onlineTour.name
   const enquiryTour = await getEnquiryTour(id)
@@ -69,6 +71,8 @@ export async function sendBookingConfirmation({
   booking: Booking
   dates: string[]
 }) {
+  if (isPayment(booking.tourId)) return sendPaymentReceipt(booking)
+
   const meetingPoint = await getSetting('email_meeting_point')
   const inclusions = await getSetting('email_inclusions')
   const whatToBring = await getSetting('email_what_to_bring')
@@ -142,6 +146,47 @@ export async function sendBookingConfirmation({
   })
 }
 
+// ── 1b. Pay-by-link receipt ──────────────────────────────────────────────────
+
+async function sendPaymentReceipt(booking: Booking) {
+  const saved = await getSetting(PAYMENT_EMAIL_KEY)
+  const body = isBlankHtml(saved) ? DEFAULT_PAYMENT_EMAIL_BODY : saved
+  const fee = Number(booking.surchargeTop ?? 0)
+  const description = booking.specialRequests ? escapeHtml(booking.specialRequests) : ''
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:auto;color:#1a1a2e">
+      <div style="background:#0a4f6e;padding:32px 24px;text-align:center">
+        <div style="color:#fff;font-size:13px;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;opacity:0.8">Tahi Tonga</div>
+        <h1 style="color:#fff;margin:0;font-size:22px">Payment Received</h1>
+      </div>
+      <div style="padding:32px 24px;background:#fff">
+        <p>Hi ${escapeHtml(booking.guestName)},</p>
+        <table style="width:100%;border-collapse:collapse;margin:24px 0">
+          <tr><td style="padding:8px;color:#666">Reference</td><td style="padding:8px;font-weight:bold">${booking.reference}</td></tr>
+          ${description ? `<tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Payment For</td><td style="padding:8px">${description}</td></tr>` : ''}
+          <tr><td style="padding:8px;color:#666">Date</td><td style="padding:8px">${formatDate(booking.confirmedAt ?? new Date())}</td></tr>
+          ${fee > 0 ? `
+            <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Payment</td><td style="padding:8px">${formatTop(Number(booking.amountTop) - fee)}</td></tr>
+            <tr><td style="padding:8px;color:#666">Card Fee</td><td style="padding:8px">${formatTop(fee)}</td></tr>
+          ` : ''}
+          <tr style="background:#f7f7f7"><td style="padding:8px;color:#666">Total Paid</td><td style="padding:8px;font-weight:bold">${formatTop(booking.amountTop)}</td></tr>
+        </table>
+        ${styleEmailHtml(body)}
+        <p style="color:#999;font-size:12px;margin-top:32px">Tahi Tonga · Nukuʻalofa, Tonga</p>
+      </div>
+    </div>
+  `
+
+  await getTransport().sendMail({
+    from: FROM_ADDRESS,
+    to: booking.guestEmail,
+    subject: `Payment Receipt — Tahi Tonga · ${booking.reference}`,
+    html,
+    text: `Payment Received\n\nReference: ${booking.reference}\n${booking.specialRequests ? `Payment for: ${booking.specialRequests}\n` : ''}Total paid: ${formatTop(booking.amountTop)}\n\n${emailHtmlToText(body)}`,
+  })
+}
+
 // ── 2. Operator new booking alert ─────────────────────────────────────────────
 
 export async function sendOperatorBookingAlert({
@@ -160,7 +205,7 @@ export async function sendOperatorBookingAlert({
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:auto">
       <h2 style="background:#0a4f6e;color:#fff;padding:16px 24px;margin:0">
-        New Booking: ${booking.reference}
+        ${isPayment(booking.tourId) ? 'Payment Received' : 'New Booking'}: ${booking.reference}
       </h2>
       <div style="padding:24px">
         <table style="width:100%;border-collapse:collapse">
@@ -168,8 +213,8 @@ export async function sendOperatorBookingAlert({
           <tr><td style="padding:6px 0;color:#666">Guest</td><td>${booking.guestName}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Email</td><td>${booking.guestEmail}</td></tr>
           <tr><td style="padding:6px 0;color:#666">Phone</td><td>${booking.guestPhone ?? '—'}</td></tr>
-          <tr><td style="padding:6px 0;color:#666">Guests</td><td>${booking.numGuests}</td></tr>
-          <tr><td style="padding:6px 0;color:#666">Date(s)</td><td>${dates.map(formatDate).join('<br/>')}</td></tr>
+          ${isPayment(booking.tourId) ? '' : `<tr><td style="padding:6px 0;color:#666">Guests</td><td>${booking.numGuests}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">Date(s)</td><td>${dates.map(formatDate).join('<br/>')}</td></tr>`}
           ${hasAdminFee ? `
             <tr><td style="padding:6px 0;color:#666">Subtotal</td><td>${formatTop(subtotal)}</td></tr>
             <tr><td style="padding:6px 0;color:#666">Administration Fee</td><td>${formatTop(booking.surchargeTop)}</td></tr>
@@ -178,7 +223,7 @@ export async function sendOperatorBookingAlert({
             <tr><td style="padding:6px 0;color:#666">Amount</td><td><strong>${formatTop(booking.amountTop)}</strong></td></tr>
           `}
           ${booking.promoCode ? `<tr><td style="padding:6px 0;color:#666">Promo</td><td>${booking.promoCode}</td></tr>` : ''}
-          <tr><td style="padding:6px 0;color:#666">Special Requests</td><td style="white-space:pre-wrap">${booking.specialRequests ? escapeHtml(booking.specialRequests) : '—'}</td></tr>
+          <tr><td style="padding:6px 0;color:#666">${isPayment(booking.tourId) ? 'Payment For' : 'Special Requests'}</td><td style="white-space:pre-wrap">${booking.specialRequests ? escapeHtml(booking.specialRequests) : '—'}</td></tr>
         </table>
         <p style="margin-top:24px">
           <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/bookings?search=${booking.reference}" style="background:#0a4f6e;color:#fff;padding:10px 20px;text-decoration:none;border-radius:4px">
@@ -192,7 +237,9 @@ export async function sendOperatorBookingAlert({
   await getTransport().sendMail({
     from: FROM_ADDRESS,
     to: operatorEmail,
-    subject: `New Booking: ${booking.reference} — ${await tourName(booking.tourId)}`,
+    subject: isPayment(booking.tourId)
+      ? `Payment Received: ${booking.reference} — ${formatTop(booking.amountTop)} from ${booking.guestName}`
+      : `New Booking: ${booking.reference} — ${await tourName(booking.tourId)}`,
     html,
   })
 }

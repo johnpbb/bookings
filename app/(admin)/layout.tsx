@@ -21,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/operating-days', label: 'Season Calendar', icon: '📅' },
     { href: '/admin/offseason', label: 'Island & Fishing', icon: '🏝️' },
     { href: '/admin/bookings', label: 'Bookings', icon: '🎫' },
+    { href: '/admin/payments', label: 'Payment Links', icon: '💳' },
     { href: '/admin/enquiries', label: 'Enquiries', icon: '✉️' },
     { href: '/admin/promo-codes', label: 'Promo Codes', icon: '🏷️' },
     { href: '/admin/packages', label: 'Packages', icon: '📦' },

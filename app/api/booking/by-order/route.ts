@@ -55,5 +55,5 @@ export async function GET(req: NextRequest) {
   const oTour = await getOnlineTour(currentBooking.tourId)
   const eTour = await getEnquiryTour(currentBooking.tourId)
 
-  return NextResponse.json({ ...safe, resultState, tourName: oTour?.name || eTour?.name })
+  return NextResponse.json({ ...safe, resultState, tourName: currentBooking.tourId === 'payment' ? 'Payment' : oTour?.name || eTour?.name })
 }

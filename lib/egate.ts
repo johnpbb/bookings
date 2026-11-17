@@ -273,6 +273,7 @@ function friendlyTourName(tourId: string): string {
     island_reef: 'Reef & Outer Island Adventure',
     island_charter: 'Reef & Outer Island Adventure - Private Charter',
     game_fishing: 'Game Fishing Charter',
+    payment: 'Payment',
   }
   return names[tourId] ?? tourId
 }

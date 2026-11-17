@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import AdminBookingsClient from './AdminBookingsClient'
 import { getToursConfig } from '@/lib/tours'
+import { PAYMENT_TOUR_ID, PAYMENT_TOUR_NAME } from '@/lib/paymentContent'
 import type { Booking, BookingDate } from '@prisma/client'
 
 type BookingWithDates = Booking & { bookingDates: BookingDate[] }
@@ -31,6 +32,7 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
   const tourMap = Object.fromEntries(
     [...online, ...enquiry].map(t => [t.id, t.name])
   )
+  tourMap[PAYMENT_TOUR_ID] = PAYMENT_TOUR_NAME
 
   const surchargeSettings = await prisma.setting.findMany({
     where: { key: { in: ['payment_surcharge_enabled', 'payment_surcharge_type', 'payment_surcharge_amount'] } }

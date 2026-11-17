@@ -12,6 +12,7 @@ interface Booking {
   amountTop: string
   bookingDates: Array<{ tourDate: string }>
   tourName?: string
+  specialRequests?: string | null
   resultState?: 'confirmed' | 'failed' | 'ambiguous' | 'paid_unplaced'
 }
 
@@ -104,11 +105,34 @@ function ResultContent() {
           </>
         ) : (
           <>
-            <p>Your booking was not confirmed. No charge has been made.</p>
-            <p>Your seat hold has been released.</p>
+            <p>{booking.tourId === 'payment' ? 'Your payment was not completed.' : 'Your booking was not confirmed.'} No charge has been made.</p>
+            {booking.tourId !== 'payment' && <p>Your seat hold has been released.</p>}
           </>
         )}
         <a href="/" className="btn btn-primary" style={{ marginTop: 32, display: 'inline-flex' }}>{isAmbiguous ? 'Back to Home' : 'Try Again'}</a>
+      </div>
+    )
+  }
+
+  if (booking.tourId === 'payment') {
+    return (
+      <div className="result-card success">
+        <span className="result-icon">✅</span>
+        <h1>Payment Received</h1>
+        <p>Mālō ʻaupito <strong>{booking.guestName}</strong>. Your receipt is on its way to your email.</p>
+
+        <div className="result-ref">{booking.reference}</div>
+
+        <div style={{ background: 'var(--foam)', borderRadius: 'var(--radius-md)', padding: '20px 24px', marginBottom: 24, textAlign: 'left' }}>
+          <div style={{ fontSize: '0.88rem', display: 'grid', gap: 10 }}>
+            {booking.specialRequests && <div><strong>Payment for:</strong> {booking.specialRequests}</div>}
+            <div><strong>Total Paid:</strong> TOP$ {Number(booking.amountTop).toFixed(2)}</div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          Questions? <a href="mailto:info@tahitonga.com">info@tahitonga.com</a>
+        </p>
       </div>
     )
   }

@@ -51,11 +51,30 @@ model Booking {
   ipAddress       String?       @map("ip_address") @db.VarChar(45)
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
+  paymentLinkId   Int?          @map("payment_link_id")
+  paymentLink     PaymentLink?  @relation(fields: [paymentLinkId], references: [id])
   bookingDates    BookingDate[]
 
   @@index([status])
   @@index([guestEmail])
+  @@index([paymentLinkId])
   @@map("tt_bookings")
+}
+
+model PaymentLink {
+  id          Int       @id @default(autoincrement())
+  token       String    @unique @db.VarChar(40)
+  amountTop   Decimal   @map("amount_top") @db.Decimal(10, 2)
+  description String    @db.VarChar(255)
+  guestName   String?   @map("guest_name") @db.VarChar(120)
+  guestEmail  String?   @map("guest_email") @db.VarChar(120)
+  status      String    @default("open") @db.VarChar(20)
+  notes       String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  bookings    Booking[]
+
+  @@map("tt_payment_links")
 }
 
 model BookingDate {

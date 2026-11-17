@@ -4,6 +4,7 @@ import { useState } from 'react'
 import RichTextEditor from '../packages/RichTextEditor'
 import { DEFAULT_WHALE_EMAIL_BODY, DEFAULT_WHALE_FORM, parseAckItems } from '@/lib/whaleContent'
 import { DEFAULT_OFFSEASON_EMAILS, OFFSEASON_ACK_KEY, OFFSEASON_EMAILS, parseOffseasonAcks } from '@/lib/offseasonContent'
+import { DEFAULT_PAYMENT_EMAIL_BODY, PAYMENT_EMAIL_KEY } from '@/lib/paymentContent'
 
 type Settings = Record<string, string>
 
@@ -262,6 +263,14 @@ export default function AdminSettingsClient({ initialSettings }: { initialSettin
             <RichTextEditor emailTools minHeight={300} value={s[email.key] ?? DEFAULT_OFFSEASON_EMAILS[email.key]} onChange={v => set(email.key, v)} />
           </div>
         ))}
+
+        <Section title="Payment Receipt Email (Payment Links)" />
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+          Sent below the payment details (reference, what it was for, amount) when someone pays through a payment link or the general payment page.
+        </p>
+        <div className="form-group">
+          <RichTextEditor emailTools minHeight={160} value={s[PAYMENT_EMAIL_KEY] ?? DEFAULT_PAYMENT_EMAIL_BODY} onChange={v => set(PAYMENT_EMAIL_KEY, v)} />
+        </div>
 
         <Section title="Confirmation Email Content (other packages)" />
         <div className="form-group">

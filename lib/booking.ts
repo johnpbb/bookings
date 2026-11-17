@@ -12,6 +12,7 @@ import type { Booking, BookingDate, Prisma } from '@prisma/client'
 import { getOnlineTour } from './tours'
 import { calcBasePrice, calcPromoDiscount } from './pricing'
 import { calendarForTour, meetsNotice, offseasonRule, seatsToReserve } from './offseason'
+import { PAYMENT_TOUR_ID } from './paymentContent'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ export async function recountSeats(tx: Prisma.TransactionClient, operatingDayIds
 
 // ── Generate unique booking reference ─────────────────────────────────────────
 
-async function generateRef(): Promise<string> {
+export async function generateRef(): Promise<string> {
   const pad = (n: number) => String(n).padStart(5, '0')
   let ref: string
   do {
@@ -611,8 +612,13 @@ export async function cancelConfirmed(
     .sort()
   const firstDate = sortedDates[0]
 
+  // A pay-by-link payment has no trip date, so the date-based policy doesn't apply: refund it in full.
   const refundAmount =
-    refundMethod !== 'none' && firstDate
+    refundMethod === 'none'
+      ? 0
+      : booking.tourId === PAYMENT_TOUR_ID
+      ? Number(booking.amountTop)
+      : firstDate
       ? await calculateRefund(Number(booking.amountTop), firstDate)
       : 0
 

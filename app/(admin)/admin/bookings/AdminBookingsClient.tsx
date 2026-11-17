@@ -153,7 +153,7 @@ export default function AdminBookingsClient({
   const filtered = bookings.filter(b => {
     if (filter.status && b.status !== filter.status) return false
     if (filter.tour   && b.tourId !== filter.tour)   return false
-    if (filter.boat   && boatForTour(b.tourId) !== filter.boat) return false
+    if (filter.boat   && (b.tourId === 'payment' || boatForTour(b.tourId) !== filter.boat)) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (

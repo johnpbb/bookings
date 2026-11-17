@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { prisma } from '@/lib/db'
 import { WHALE_CONTENT_KEYS } from '@/lib/whaleContent'
 import { OFFSEASON_CONTENT_KEYS } from '@/lib/offseasonContent'
+import { PAYMENT_EMAIL_KEY } from '@/lib/paymentContent'
 
 const PUBLIC_KEYS = [
   'hold_minutes', 'non_refundable_fee', 'whale_season_start', 'whale_season_end',
@@ -15,6 +16,7 @@ const PUBLIC_KEYS = [
   'payment_surcharge_type', 'payment_surcharge_amount',
   ...WHALE_CONTENT_KEYS,
   ...OFFSEASON_CONTENT_KEYS,
+  PAYMENT_EMAIL_KEY,
 ]
 
 // GET /api/admin/settings
