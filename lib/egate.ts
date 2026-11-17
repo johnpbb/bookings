@@ -60,8 +60,14 @@ export async function buildPaymentSession(
   const amount = Number(booking.amountTop).toFixed(2)
   const currency = booking.currency ?? 'TOP'
   // The ANZ order carries the guest's booking number so payments match bookings directly.
-  // A booking that already reached ANZ under an older ID keeps it, so a retry stays on one order.
-  const orderId = booking.egateOrderId ?? booking.reference
+  // A booking that already reached ANZ keeps its order, so a retry stays on one order.
+  let orderId = booking.egateOrderId
+  if (!orderId) {
+    orderId = booking.reference
+    // A booking number can come round again after a booking is deleted. Never attach a new
+    // booking to an existing ANZ order: that order's old payment would confirm it unpaid.
+    if (await anzOrderExists(baseUrl, mid, pass, orderId)) orderId = `${booking.reference}-${bookingId}`
+  }
   
   // Use Database setting, then runtime APP_URL, then fallback
   const dbAppUrl = await getSetting('app_url')
@@ -241,6 +247,23 @@ export async function processEgateRefund(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// True when ANZ already has an order with this ID. Anything other than a clear "not found"
+// counts as existing, so a network problem can only ever lead to a fresh, unique order ID.
+async function anzOrderExists(baseUrl: string, mid: string, pass: string, orderId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl}/merchant/${mid}/order/${encodeURIComponent(orderId)}`, {
+      headers: { 'Authorization': getAuthHeader(mid, pass) },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) return true
+    const data = await res.json().catch(() => null)
+    return !(res.status === 400 || res.status === 404) || data?.error?.cause !== 'INVALID_REQUEST'
+  } catch {
+    return true
+  }
+}
 
 function friendlyTourName(tourId: string): string {
   const names: Record<string, string> = {
