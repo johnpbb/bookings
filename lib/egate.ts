@@ -269,11 +269,16 @@ function friendlyTourName(tourId: string): string {
   const names: Record<string, string> = {
     whale_day_trip: 'Whale Watch Day Trip',
     whale_3day: 'Whale Watch 3-Day Special',
+    whale_4day: 'Whale Watch 4-Day Special',
     whale_5day: 'Whale Watch 5-Day Special',
     island_reef: 'Reef & Outer Island Adventure',
     island_charter: 'Reef & Outer Island Adventure - Private Charter',
     game_fishing: 'Game Fishing Charter',
     payment: 'Payment',
   }
-  return names[tourId] ?? tourId
+  if (names[tourId]) return names[tourId]
+  // Multi-day whale trips added later in Packages, e.g. whale_6day
+  const multiDay = /^whale_(\d+)day$/.exec(tourId)
+  if (multiDay) return `Whale Watch ${multiDay[1]}-Day Special`
+  return tourId
 }
