@@ -92,6 +92,7 @@ function seasonProblem(sp: SeasonPrice): string | null {
   if (sp.end < sp.start) return 'The end date is before the start date, so this price will never be used. Check the years.'
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Tongatapu' })
   if (sp.end < today) return 'This season has already ended, so this price will not be used for new bookings.'
+  if (sp.start.slice(0, 4) !== sp.end.slice(0, 4)) return 'The start and end dates are in different years. Check the years are right.'
   return null
 }
 
