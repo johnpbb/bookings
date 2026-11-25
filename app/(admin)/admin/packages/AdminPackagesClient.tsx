@@ -86,6 +86,23 @@ function ImageUploader({
   )
 }
 
+function OrderButtons({ name, isFirst, isLast, onMove }: {
+  name: string
+  isFirst: boolean
+  isLast: boolean
+  onMove: (dir: -1 | 1) => void
+}) {
+  const style = { fontSize: '0.8rem', padding: '4px 10px' }
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      <button type="button" className="btn btn-outline" style={style} disabled={isFirst}
+        title="Move up" aria-label={`Move ${name} up`} onClick={() => onMove(-1)}>↑</button>
+      <button type="button" className="btn btn-outline" style={style} disabled={isLast}
+        title="Move down" aria-label={`Move ${name} down`} onClick={() => onMove(1)}>↓</button>
+    </div>
+  )
+}
+
 export default function AdminPackagesClient({
   initialOnline,
   initialEnquiry,
@@ -187,6 +204,15 @@ export default function AdminPackagesClient({
     setOnlineTours(prev => [...prev, asOnline])
   }
 
+  // Swap a package with its neighbour; the storefront shows packages in this saved order.
+  function moved<T>(list: T[], idx: number, dir: -1 | 1): T[] {
+    const to = idx + dir
+    if (to < 0 || to >= list.length) return list
+    const next = [...list]
+    ;[next[idx], next[to]] = [next[to], next[idx]]
+    return next
+  }
+
   const updateOnline = (idx: number, patch: Partial<OnlineTour>) =>
     setOnlineTours(prev => prev.map((t, i) => i === idx ? { ...t, ...patch } : t))
 
@@ -209,7 +235,7 @@ export default function AdminPackagesClient({
         <section>
           <h2 style={{ marginBottom: 4 }}>Online Bookable Packages</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
-            Customers can select dates and pay online. Use "Move to Enquiry" to switch a tour to enquiry-only.
+            Customers can select dates and pay online. Use ↑ ↓ to set the order shown on the website, and "Move to Enquiry" to switch a tour to enquiry-only.
           </p>
           <div style={{ display: 'grid', gap: 20 }}>
             {onlineTours.map((t, idx) => (
@@ -224,6 +250,12 @@ export default function AdminPackagesClient({
                       <input type="checkbox" checked={t.isActive} onChange={e => updateOnline(idx, { isActive: e.target.checked })} />
                       Active on Storefront
                     </label>
+                    <OrderButtons
+                      name={t.name}
+                      isFirst={idx === 0}
+                      isLast={idx === onlineTours.length - 1}
+                      onMove={dir => setOnlineTours(prev => moved(prev, idx, dir))}
+                    />
                     <button
                       className="btn btn-outline"
                       style={{ fontSize: '0.8rem', padding: '4px 12px' }}
@@ -371,6 +403,12 @@ export default function AdminPackagesClient({
                       <input type="checkbox" checked={t.isActive} onChange={e => updateEnquiry(idx, { isActive: e.target.checked })} />
                       Active on Storefront
                     </label>
+                    <OrderButtons
+                      name={t.name}
+                      isFirst={idx === 0}
+                      isLast={idx === enquiryTours.length - 1}
+                      onMove={dir => setEnquiryTours(prev => moved(prev, idx, dir))}
+                    />
                     <button
                       className="btn btn-outline"
                       style={{ fontSize: '0.8rem', padding: '4px 12px' }}
