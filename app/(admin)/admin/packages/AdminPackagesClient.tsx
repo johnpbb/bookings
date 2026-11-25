@@ -86,6 +86,15 @@ function ImageUploader({
   )
 }
 
+// Catches date typos (e.g. a 2026 end date on a 2027 season) that would silently fall back to the base price.
+function seasonProblem(sp: SeasonPrice): string | null {
+  if (!sp.start || !sp.end) return 'Add both a start and an end date, or this price will never be used.'
+  if (sp.end < sp.start) return 'The end date is before the start date, so this price will never be used. Check the years.'
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Tongatapu' })
+  if (sp.end < today) return 'This season has already ended, so this price will not be used for new bookings.'
+  return null
+}
+
 function OrderButtons({ name, isFirst, isLast, onMove }: {
   name: string
   isFirst: boolean
@@ -116,6 +125,13 @@ export default function AdminPackagesClient({
   const [saved, setSaved] = useState(false)
 
   async function saveTours() {
+    const problems = onlineTours.flatMap(t =>
+      (t.seasonPrices ?? []).flatMap(sp => {
+        const p = seasonProblem(sp)
+        return p ? [`${t.name}${sp.label ? ` (${sp.label})` : ''}: ${p}`] : []
+      }),
+    )
+    if (problems.length && !confirm(`Some season prices need checking:\n\n${problems.join('\n')}\n\nSave anyway?`)) return
     setLoading(true)
     setSaved(false)
     try {
@@ -339,8 +355,10 @@ export default function AdminPackagesClient({
                     {(t.seasonPrices ?? []).map((sp, si) => {
                       const updateSeason = (patch: Partial<SeasonPrice>) =>
                         updateOnline(idx, { seasonPrices: (t.seasonPrices ?? []).map((s, i) => i === si ? { ...s, ...patch } : s) })
+                      const problem = seasonProblem(sp)
                       return (
-                        <div key={si} style={{ display: 'flex', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                        <div key={si} style={{ marginBottom: 6 }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <input placeholder="Label (e.g. Peak season)" value={sp.label} style={{ flex: '2 1 140px' }}
                             onChange={e => updateSeason({ label: e.target.value })} />
                           <input type="date" value={sp.start} style={{ flex: '1 1 130px' }}
@@ -353,6 +371,10 @@ export default function AdminPackagesClient({
                             onClick={() => updateOnline(idx, { seasonPrices: (t.seasonPrices ?? []).filter((_, i) => i !== si) })}>
                             Remove
                           </button>
+                        </div>
+                        {problem && (
+                          <p role="alert" style={{ color: '#c0392b', fontSize: '0.8rem', margin: '4px 0 0' }}>⚠ {problem}</p>
+                        )}
                         </div>
                       )
                     })}
